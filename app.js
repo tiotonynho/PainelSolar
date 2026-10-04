@@ -1,5 +1,8 @@
 const months=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
-const monthlyHsp=[5.18,5.61,5.09,5.19,4.82,4.66,4.98,5.70,5.38,5.33,4.94,5.13];
+const defaultMonthlyHsp=[5.18,5.61,5.09,5.19,4.82,4.66,4.98,5.70,5.38,5.33,4.94,5.13];
+let activeMonthlyHsp=[...defaultMonthlyHsp];
+let hspSourceLabel='Valor padrão/manual';
+let hspLookupId=0;
 const form=document.querySelector('#quoteForm');
 const grid=document.querySelector('#consumptionGrid');
 let currentStep=1;
@@ -12,6 +15,63 @@ const money=value=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL
 const number=(value,digits=2)=>new Intl.NumberFormat('pt-BR',{minimumFractionDigits:digits,maximumFractionDigits:digits}).format(value);
 const field=name=>form.elements[name];
 const values=()=>Object.fromEntries(new FormData(form));
+const solarApi=window.SolarApi?.createClient?.({timeoutMs:20000});
+
+function resetCityOptions(message='Escolha a UF primeiro'){
+  const city=field('city');
+  city.replaceChildren(new Option(message,''));
+  city.value='';
+  city.disabled=true;
+}
+
+function fillCities(uf,selected=''){
+  const city=field('city');
+  const cities=window.SOLAR_LOCALITIES?.municipalities?.[uf]||[];
+  city.replaceChildren(new Option(cities.length?'Cidade':'Cidade indisponível',''));
+  for(const item of cities)city.add(new Option(item.name,item.name));
+  city.disabled=!cities.length;
+  if(selected&&cities.some(item=>item.name===selected))city.value=selected;
+}
+
+function setHspStatus(message){
+  const status=document.querySelector('#hspStatus');
+  if(status)status.textContent=message;
+}
+
+async function updateSolarHsp(){
+  if(!solarApi||!field('state').value||!field('city').value)return;
+  const requestId=++hspLookupId;
+  const params=new URLSearchParams({state:field('state').value,city:field('city').value});
+  setHspStatus('Consultando HSP da região...');
+  try{
+    const data=await solarApi('solar/hsp?'+params.toString());
+    if(requestId!==hspLookupId)return;
+    const monthlyOrder=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+    activeMonthlyHsp=monthlyOrder.map(month=>Number(data.monthly?.[month])||Number(data.hsp));
+    hspSourceLabel=`${data.source}; ${data.range}`;
+    field('hsp').value=Number(data.hsp).toFixed(4);
+    setHspStatus(`HSP automático: ${number(Number(data.hsp),2)} h/dia em ${data.matchedCity}/${data.state}.`);
+    updateDimensioningPreview();
+  }catch(error){
+    if(requestId!==hspLookupId)return;
+    setHspStatus(error.code==='AUTH_REQUIRED'?'Entre para buscar o HSP automático.':'Não foi possível buscar o HSP. Ajuste manualmente.');
+  }
+}
+
+function setupLocalities(){
+  const state=field('state');
+  const localities=window.SOLAR_LOCALITIES;
+  if(!localities?.states?.length){resetCityOptions('Cidade');return;}
+  const selectedState=state.value;
+  const selectedCity=field('city').value;
+  state.replaceChildren(new Option('UF',''));
+  for(const item of localities.states)state.add(new Option(`${item.uf} - ${item.name}`,item.uf));
+  state.value=selectedState;
+  if(state.value)fillCities(state.value,selectedCity);
+  else resetCityOptions();
+  state.addEventListener('change',()=>{fillCities(state.value);setHspStatus('Escolha a cidade para atualizar o HSP.');});
+  field('city').addEventListener('change',updateSolarHsp);
+}
 
 function showView(id){
   document.body.dataset.print=id==='contract'?'contract':'proposal';
@@ -19,7 +79,7 @@ function showView(id){
   document.querySelector(`#${id}`).classList.add('active-view');
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===id));
   const titles={dashboard:'Visão geral',quote:'Novo orçamento',clients:'Clientes',settings:'Configurações',proposal:'Proposta gerada',contracts:'Contratos',contract:'Contrato'};
-  document.querySelector('#pageTitle').textContent=({team:'Equipe',account:'Minha conta'})[id]||titles[id]||'SolarPro';
+  document.querySelector('#pageTitle').textContent=({team:'Equipe',account:'Minha conta'})[id]||titles[id]||'Pórtico Solar Energy';
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -49,8 +109,8 @@ function dimensioningEstimate(data=values(),consumption=consumptionValues()){
   const requiredKwp=hsp&&performance?targetMonthly/(hsp*30.4*performance):0;
   const modules=modulePower?Math.max(1,Math.ceil(requiredKwp*1000/modulePower)):0;
   const installedKwp=modules*modulePower/1000;
-  const referenceHsp=monthlyHsp.reduce((a,b)=>a+b,0)/12;
-  const generation=monthlyHsp.map(h=>h/referenceHsp*hsp*30.4*performance*installedKwp);
+  const referenceHsp=activeMonthlyHsp.reduce((a,b)=>a+b,0)/12;
+  const generation=activeMonthlyHsp.map(h=>h/referenceHsp*hsp*30.4*performance*installedKwp);
   const annualGeneration=generation.reduce((a,b)=>a+b,0);
   return {consumption,average,targetMonthly,hsp,performance,modulePower,requiredKwp,modules,installedKwp,generation,annualGeneration};
 }
@@ -122,7 +182,7 @@ function calculate(){
   const taxCost=kitCost*percentageRate(d,'taxRate');
   const investment=kitCost+marginCost+installationCost+engineeringCost+taxCost+storageCost;
   const payback=investment/annualSavings;
-  return {...d,hybrid,storageCost,storageCapacity,usableCapacity,autonomy,consumption,average,targetMonthly,modules,installedKwp,generation,annualGeneration,annualSavings,investment,payback,area:modules*defaultModuleArea};
+  return {...d,hybrid,hspSource:hspSourceLabel,solarProfile:[...activeMonthlyHsp],storageCost,storageCapacity,usableCapacity,autonomy,consumption,average,targetMonthly,modules,installedKwp,generation,annualGeneration,annualSavings,investment,payback,area:modules*defaultModuleArea};
 }
 
 function buildProposal(r){
@@ -172,7 +232,7 @@ function renderEquipment(r){
   }));
   const storage=document.querySelector('#pStorage');storage.hidden=!r.hybrid;
   storage.textContent=r.hybrid?`Energia utilizável: ${number(r.usableCapacity)} kWh • Autonomia teórica: ${number(r.autonomy)} h com carga média de ${number(Number(r.backupLoad))} kW. Descarga considerada: ${r.batteryDod}%. Perdas, reserva e picos de carga podem reduzir a autonomia. Backup depende de circuito dedicado e validação técnica.`:'';
-  document.querySelector('#pAssumptions').textContent=`HSP: ${number(Number(r.hsp))} h/dia · Performance ratio: ${number(Number(r.performance)*100,0)}% · Orientação: ${r.orientation}. Área estimada por referência técnica de ${number(defaultModuleArea,3)} m² por módulo, sem corredores. Economia limitada ao consumo compensável informado, com tarifa de ${money(Number(r.tariff))}/kWh; não inclui reajustes, degradação ou custos de manutenção. O armazenamento não acrescenta geração nem economia à estimativa. Custo adicional de armazenamento e backup: ${money(r.storageCost)}.`;
+  document.querySelector('#pAssumptions').textContent=`HSP: ${number(Number(r.hsp))} h/dia · Fonte HSP: ${r.hspSource}. Performance ratio: ${number(Number(r.performance)*100,0)}% · Orientação: ${r.orientation}. Área estimada por referência técnica de ${number(defaultModuleArea,3)} m² por módulo, sem corredores. Economia limitada ao consumo compensável informado, com tarifa de ${money(Number(r.tariff))}/kWh; não inclui reajustes, degradação ou custos de manutenção. O armazenamento não acrescenta geração nem economia à estimativa. Custo adicional de armazenamento e backup: ${money(r.storageCost)}.`;
   const items=[`${r.modules} módulos ${moduleLabel}`,`${r.inverterQuantity} × ${inverterLabel}`,'Projeto de engenharia e homologação','Estrutura de fixação e instalação','Proteções elétricas e conectores'];
   if(r.hybrid)items.push(`${r.batteryQuantity} baterias ${r.batteryBrand} ${r.batteryModel} e instalação de backup`);
   document.querySelector('#pEquipment').replaceChildren(...items.map(text=>{const li=document.createElement('li');li.textContent=text;return li;}));
@@ -186,6 +246,7 @@ function syncSystem(){
   else if(field('inverterType').value==='hybrid')field('inverterType').value='string';
 }
 field('systemType').addEventListener('change',syncSystem);
+setupLocalities();
 syncSystem();
 for(const name of ['tariff','hsp','performance','kitCost','margin','installationRate','engineeringRate','taxRate','energyInflation']){
   field(name).required=true;
@@ -194,6 +255,7 @@ for(const name of ['tariff','hsp','performance','kitCost','margin','installation
 field('performance').max='1';
 field('hsp').step='any';
 field('installationRate').step='any';
+field('hsp').addEventListener('input',()=>{hspSourceLabel='Valor editado manualmente';setHspStatus('HSP editado manualmente. A curva mensal da região permanece como referência.');});
 form.addEventListener('submit',event=>event.preventDefault());
 form.addEventListener('input',()=>{updateInvestmentPreview();updateDimensioningPreview();});
 form.addEventListener('change',()=>{updateInvestmentPreview();updateDimensioningPreview();});

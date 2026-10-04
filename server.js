@@ -6,15 +6,54 @@ const {DatabaseSync}=require('node:sqlite');
 const Core=require('./contract-core');
 const {createAuth}=require('./auth');
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
-function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.env.PUBLIC_URL}={}){
+function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.env.PUBLIC_URL,fetchImpl=fetch}={}){
   fs.mkdirSync(dataDir,{recursive:true});
   const db=new DatabaseSync(path.join(dataDir,'contracts.sqlite'));
   db.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS records (id TEXT PRIMARY KEY, token TEXT UNIQUE, body TEXT NOT NULL)');
+  db.exec('CREATE TABLE IF NOT EXISTS solar_hsp_cache (key TEXT PRIMARY KEY, body TEXT NOT NULL, updated_at INTEGER NOT NULL)');
   if(!db.prepare('PRAGMA table_info(records)').all().some(column=>column.name==='owner_id'))db.exec('ALTER TABLE records ADD COLUMN owner_id TEXT');
   db.exec('CREATE INDEX IF NOT EXISTS records_owner ON records(owner_id)');
   const read=id=>{const row=db.prepare('SELECT body FROM records WHERE id=?').get(id);return row?JSON.parse(row.body):null;};
   const save=r=>db.prepare('UPDATE records SET body=? WHERE id=?').run(JSON.stringify(r),r.id);
   const fail=(message,status=400)=>Object.assign(new Error(message),{status});
+  const solarMonths=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const stateNames={AC:'Acre',AL:'Alagoas',AP:'Amapá',AM:'Amazonas',BA:'Bahia',CE:'Ceará',DF:'Distrito Federal',ES:'Espírito Santo',GO:'Goiás',MA:'Maranhão',MT:'Mato Grosso',MS:'Mato Grosso do Sul',MG:'Minas Gerais',PA:'Pará',PB:'Paraíba',PR:'Paraná',PE:'Pernambuco',PI:'Piauí',RJ:'Rio de Janeiro',RN:'Rio Grande do Norte',RS:'Rio Grande do Sul',RO:'Rondônia',RR:'Roraima',SC:'Santa Catarina',SP:'São Paulo',SE:'Sergipe',TO:'Tocantins'};
+  const normalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  async function fetchJson(url,label){
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
+    try{
+      const response=await fetchImpl(url,{signal:controller.signal,headers:{'User-Agent':'SolarPro/1.0'}});
+      if(!response.ok)throw fail('Não foi possível consultar '+label+'.',502);
+      return await response.json();
+    }catch(error){
+      if(error.status)throw error;
+      throw fail('Não foi possível consultar '+label+'.',502);
+    }finally{clearTimeout(timer);}
+  }
+  async function solarHsp(state,city){
+    if(!/^[A-Z]{2}$/.test(state)||typeof city!=='string'||!city.trim()||city.length>120)throw fail('Informe UF e cidade válidas.');
+    const key=state+'|'+normalize(city.trim());
+    const cached=db.prepare('SELECT body FROM solar_hsp_cache WHERE key=?').get(key);
+    if(cached)return {...JSON.parse(cached.body),cached:true};
+    const geocodeUrl=new URL('https://geocoding-api.open-meteo.com/v1/search');
+    geocodeUrl.search=new URLSearchParams({name:city.trim()+', '+state,count:'5',language:'pt',format:'json',countryCode:'BR'}).toString();
+    const geocode=await fetchJson(geocodeUrl,'a geocodificação da cidade');
+    const expectedState=normalize(stateNames[state]||state);
+    const results=(geocode.results||[]).filter(item=>item.country_code==='BR');
+    const sameCity=item=>normalize(item.name)===normalize(city)||normalize(item.admin2)===normalize(city);
+    const sameState=item=>normalize(item.admin1)===expectedState;
+    const location=results.find(item=>sameCity(item)&&sameState(item))||results.find(sameState)||results.find(sameCity)||results[0];
+    if(!location)throw fail('Cidade não encontrada para cálculo de HSP.',404);
+    const powerUrl=new URL('https://power.larc.nasa.gov/api/temporal/climatology/point');
+    powerUrl.search=new URLSearchParams({parameters:'ALLSKY_SFC_SW_DWN',community:'RE',longitude:String(location.longitude),latitude:String(location.latitude),format:'JSON'}).toString();
+    const power=await fetchJson(powerUrl,'a climatologia solar NASA POWER');
+    const values=power.properties?.parameter?.ALLSKY_SFC_SW_DWN||{};
+    const monthly=Object.fromEntries(solarMonths.map(month=>[month,Number(values[month])]));
+    if(!solarMonths.every(month=>Number.isFinite(monthly[month]))||!Number.isFinite(Number(values.ANN)))throw fail('A API solar retornou dados incompletos.',502);
+    const result={state,city:city.trim(),matchedCity:location.name,latitude:location.latitude,longitude:location.longitude,hsp:Number(values.ANN),monthly,units:power.parameters?.ALLSKY_SFC_SW_DWN?.units||'kWh/m²/dia',range:power.header?.range||'Climatologia NASA POWER',source:'NASA POWER ALLSKY_SFC_SW_DWN + Open-Meteo Geocoding'};
+    db.prepare('INSERT OR REPLACE INTO solar_hsp_cache(key,body,updated_at) VALUES (?,?,?)').run(key,JSON.stringify(result),Date.now());
+    return result;
+  }
   function ownedRecord(id,user){
     const owner=db.prepare('SELECT owner_id FROM records WHERE id=?').get(id);
     if(!owner||(user.role!=='admin'&&owner.owner_id!==user.id))throw fail('Registro não encontrado.',404);
@@ -86,6 +125,9 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
       }
       if(route.startsWith('/api/')){
         const user=auth.requireUser(req);
+        if(route==='/api/solar/hsp'&&req.method==='GET'){
+          return reply(200,await solarHsp((url.searchParams.get('state')||'').toUpperCase(),url.searchParams.get('city')||''));
+        }
         if(route==='/api/records'&&req.method==='GET'){
           const rows=user.role==='admin'?db.prepare('SELECT body,owner_id FROM records ORDER BY rowid').all():db.prepare('SELECT body,owner_id FROM records WHERE owner_id=? ORDER BY rowid').all(user.id);
           return reply(200,rows.map(row=>({...JSON.parse(row.body),ownerId:row.owner_id})));
@@ -127,10 +169,11 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
         }
         throw fail('Rota não encontrada.',404);
       }
-      const files=['index.html','app.js','styles.css','theme-portico.css','contracts.css','contracts.js','contract-template.js','contract-core.js','api-client.js','auth-ui.js','auth.css','cliente.html','cliente.js'];
+      const files=['index.html','app.js','styles.css','theme-portico.css','contracts.css','contracts.js','contract-template.js','contract-core.js','api-client.js','auth-ui.js','auth.css','cliente.html','cliente.js','localities.js'];
+      const assets=['assets/portico-logo-horizontal-color.png','assets/portico-logo-horizontal-white.png','assets/portico-logo-horizontal-white-transparent.png','assets/portico-logo-vertical-color.png','assets/portico-logo-vertical-white.png','assets/portico-logo-vertical-white-transparent.png'];
       const file=route==='/'?'index.html':route.slice(1);
-      if(req.method!=='GET'||!files.includes(file))throw fail('Não encontrado.',404);
-      res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript; charset=utf-8':file.endsWith('.css')?'text/css; charset=utf-8':'text/html; charset=utf-8');
+      if(req.method!=='GET'||(!files.includes(file)&&!assets.includes(file)))throw fail('Não encontrado.',404);
+      res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript; charset=utf-8':file.endsWith('.css')?'text/css; charset=utf-8':file.endsWith('.png')?'image/png':'text/html; charset=utf-8');
       res.end(fs.readFileSync(path.join(__dirname,file)));
     }catch(error){reply(error.status||400,{error:error.status||error.message?.startsWith('Preencha')?error.message:'Não foi possível concluir a operação. Confira os dados e tente novamente.'});}
   });

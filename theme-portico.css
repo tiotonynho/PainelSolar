@@ -16,13 +16,76 @@
 
 body, body * { font-family: 'Nunito', Arial, sans-serif !important; }
 .brand, .topbar h1, .hero h2, .metric strong, .panel h3, .form-title h2,
-.average-box strong, .proposal-brand b, .cover-copy h2, .cover-result strong,
+.average-box strong, .proposal-brand b, .portico-wordmark, .cover-copy h2, .cover-result strong,
 .section-heading, .result-grid strong, .chart-heading strong, .finance-highlight strong,
 .economy-row strong, .equipment h3, .terms h3 { font-family: 'Nunito', sans-serif; }
 
 body { color: var(--ink); background: #FAFAFA; }
 .sidebar { background: #000000; }
 .brand-mark { background: var(--portico-gradient); color: #FFFFFF; border-radius: 11px; }
+.portico-logo { align-items: center; gap: 12px; }
+.brand.portico-logo { margin-bottom: 44px; }
+.portico-logo-img { display: block; width: 100%; height: auto; object-fit: contain; }
+.sidebar .portico-logo-img-horizontal { width: 176px; max-height: 82px; object-fit: contain; }
+.proposal-cover .portico-logo-img-vertical { width: 150px; filter: drop-shadow(0 10px 22px rgba(0,0,0,.18)); }
+.proposal-header .portico-logo-img-horizontal { width: 168px; }
+.portico-emblem {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--portico-gradient);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
+}
+.portico-emblem::before,
+.portico-emblem::after,
+.portico-emblem span::before,
+.portico-emblem span::after {
+  content: "";
+  position: absolute;
+  background: #FFFFFF;
+}
+.portico-emblem::before {
+  width: 20px;
+  height: 20px;
+  right: 6px;
+  top: 6px;
+  border-radius: 50%;
+}
+.portico-emblem::after {
+  left: 9px;
+  right: 9px;
+  bottom: 9px;
+  height: 6px;
+  border-radius: 10px;
+}
+.portico-emblem span::before {
+  width: 6px;
+  height: 24px;
+  left: 9px;
+  bottom: 9px;
+  border-radius: 10px 10px 2px 2px;
+}
+.portico-emblem span::after {
+  width: 19px;
+  height: 6px;
+  left: 9px;
+  top: 15px;
+  border-radius: 10px;
+}
+.portico-wordmark { display: grid; gap: 1px; line-height: 1; color: #FFFFFF; letter-spacing: 0; }
+.portico-wordmark strong { font-size: 21px; font-weight: 900; letter-spacing: 0; }
+.portico-wordmark small { font-size: 9px; font-weight: 900; letter-spacing: .22em; color: #F59E17; }
+.proposal-brand.portico-logo { gap: 10px; }
+.proposal-brand .portico-emblem { width: 40px; height: 40px; flex-basis: 40px; }
+.proposal-brand .portico-wordmark strong { font-size: 18px; }
+.proposal-brand .portico-wordmark small { font-size: 8px; }
+.proposal-brand.dark .portico-wordmark { color: #000000; }
+.proposal-brand.dark .portico-wordmark small { color: #EC6C19; }
 .nav-item { color: #C6C6C6; }
 .nav-item:hover, .nav-item.active {
   background: linear-gradient(90deg, rgba(231, 60, 29, .28), rgba(245, 158, 23, .16));
@@ -166,6 +229,13 @@ input:focus, select:focus { border-color: #EC6C19; box-shadow: 0 0 0 3px rgba(23
   .result-grid div { padding: 12px; }.result-grid strong { font-size: 16px; }
   .proposal-header { flex-wrap: wrap; gap: 12px; }.section-heading { font-size: 27px; }
   .average-box { flex-wrap: wrap; }.average-box small { margin-left: 0; }
+  .portico-wordmark strong { font-size: 17px; }
+  .portico-wordmark small { font-size: 7px; }
+}
+@media screen and (max-width: 900px) {
+  .sidebar .portico-wordmark { display: none; }
+  .sidebar .portico-logo { justify-content: center; margin-left: 0; }
+  .sidebar .portico-logo-img-horizontal { width: 48px; height: 48px; object-fit: cover; object-position: left center; border-radius: 10px; }
 }
 /* Impressão sem cabeçalhos/rodapés automáticos do navegador */
 @page {

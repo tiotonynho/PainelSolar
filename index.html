@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SolarPro - Orçamentos Fotovoltaicos</title>
+  <title>Pórtico Solar Energy - Orçamentos Fotovoltaicos</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300;400;600;700;800;900&display=swap" rel="stylesheet">
@@ -14,7 +14,9 @@
 </head>
 <body class="auth-locked">
   <aside class="sidebar">
-    <div class="brand"><span class="brand-mark">S</span><span>SolarPro</span></div>
+    <div class="brand portico-logo" aria-label="Pórtico Solar Energy">
+      <img class="portico-logo-img portico-logo-img-horizontal" src="assets/portico-logo-horizontal-white-transparent.png" alt="Pórtico Solar Energy">
+    </div>
     <nav>
       <button class="nav-item active" data-view="dashboard"><span>⌂</span> Visão geral</button>
       <button class="nav-item" data-view="quote"><span>＋</span> Novo orçamento</button>
@@ -59,8 +61,8 @@
             <label>CPF / CNPJ<input name="document" placeholder="000.000.000-00"></label>
             <label>Telefone<input name="phone" placeholder="(35) 99999-9999"></label>
             <label class="wide">Endereço<input name="address" placeholder="Insira seu endereço" required></label>
-            <label>UF<select name="state" required><option value="" selected disabled>UF</option><option>MG</option><option>SP</option><option>RJ</option><option>PR</option></select></label>
-            <label>Cidade<input name="city" placeholder="Escolha a sua cidade" required></label>
+            <label>UF<select name="state" required><option value="" selected disabled>UF</option></select></label>
+            <label>Cidade<select name="city" required disabled><option value="" selected disabled>Escolha a UF primeiro</option></select></label>
             <label>Nº da instalação<input name="installation" placeholder="Número da UC"></label>
             <label>Tipo de ligação<select name="connection"><option value="30">Monofásico</option><option value="50" selected>Bifásico</option><option value="100">Trifásico</option></select></label>
           </div>
@@ -98,7 +100,7 @@
             </div><p class="field-help">Confirme a compatibilidade entre inversor e baterias. A autonomia é teórica e não considera perdas.</p></fieldset>
             <div class="wide field-section"><h3>02 / Dimensionamento e investimento</h3><p>Inclua módulos e inversores no custo do kit. Informe o armazenamento separadamente.</p></div>
             <label>Tarifa de energia (R$/kWh)<input type="number" step="0.01" name="tariff" value="1.15"></label>
-            <label>HSP médio diário<input type="number" step="0.01" name="hsp" value="5.1675"></label>
+            <label>HSP médio diário<input type="number" step="0.01" name="hsp" value="5.1675"><small class="field-help" id="hspStatus">Escolha UF e cidade para atualizar automaticamente.</small></label>
             <label>Performance ratio<input type="number" step="0.01" name="performance" value="0.74"></label>
             <div class="wide dimensioning-preview" aria-live="polite">
               <div><span>Total de módulos</span><strong id="moduleCountPreview">0</strong></div>
@@ -125,14 +127,16 @@
       <div class="proposal-actions"><button class="ghost" id="editQuote">← Editar dados</button><button class="primary" id="printProposal">Imprimir / Salvar PDF</button></div>
       <article class="proposal" id="proposalDocument">
         <div class="proposal-cover">
-          <div class="proposal-brand"><span class="brand-mark">S</span><b>PÓRTICO<br>SOLAR ENERGY</b></div>
+          <div class="proposal-brand portico-logo" aria-label="Pórtico Solar Energy">
+            <img class="portico-logo-img portico-logo-img-vertical" src="assets/portico-logo-vertical-white-transparent.png" alt="Pórtico Solar Energy">
+          </div>
           <span class="proposal-number" id="pNumber">PT099/2026</span>
           <div class="cover-copy"><span>PROPOSTA TÉCNICA COMERCIAL</span><h2>Energia limpa.<br>Economia de verdade.</h2><p>Projeto fotovoltaico personalizado para <strong id="pClientCover"></strong>.</p></div>
           <div class="cover-result"><div><small>Potência do sistema</small><strong id="pPowerCover"></strong></div><div><small>Economia no 1º ano</small><strong id="pSavingsCover"></strong></div></div>
         </div>
 
         <div class="proposal-page">
-          <div class="proposal-header"><div class="proposal-brand dark"><span class="brand-mark">S</span><b>PÓRTICO SOLAR ENERGY</b></div><span id="pDate"></span></div>
+          <div class="proposal-header"><div class="proposal-brand portico-logo dark" aria-label="Pórtico Solar Energy"><img class="portico-logo-img portico-logo-img-horizontal" src="assets/portico-logo-horizontal-color.png" alt="Pórtico Solar Energy"></div><span id="pDate"></span></div>
           <h2 class="section-heading">Seu projeto solar</h2>
           <p class="lead">Dimensionamento desenvolvido a partir do consumo informado e do potencial solar da região.</p>
           <div class="client-card"><div><small>CLIENTE</small><strong id="pClient"></strong><span id="pAddress"></span></div><div><small>INSTALAÇÃO</small><strong id="pInstallation"></strong><span id="pConnection"></span></div></div>
@@ -167,6 +171,7 @@
   <script src="api-client.js"></script>
   <script src="contract-template.js"></script>
   <script src="contract-core.js"></script>
+  <script src="localities.js"></script>
   <script src="app.js"></script>
   <script src="contracts.js"></script>
   <script src="auth-ui.js"></script>

@@ -82,3 +82,32 @@ test('API: autenticação, aceite, revisão, assinatura imutável e persistênci
   assert.equal(persisted.signature.hash,crypto.createHash('sha256').update(text).digest('hex'));
   assert.equal(persisted.events.length,2);
 });
+test('API solar calcula HSP por cidade e usa cache',async t=>{
+  const dataDir=path.join(__dirname,'../tmp','solar-test-'+crypto.randomUUID());
+  const months=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const monthly=Object.fromEntries(months.map((month,index)=>[month,4.5+index/10]));
+  const calls=[];
+  const fetchImpl=async url=>{
+    const href=String(url);calls.push(href);
+    if(href.startsWith('https://geocoding-api.open-meteo.com/'))return {ok:true,json:async()=>({results:[{name:'Alfenas',country_code:'BR',admin1:'São Paulo',latitude:-22,longitude:-46},{name:'Alfenas',country_code:'BR',admin1:'Minas Gerais',latitude:-21.42917,longitude:-45.94722}]})};
+    if(href.startsWith('https://power.larc.nasa.gov/'))return {ok:true,json:async()=>({properties:{parameter:{ALLSKY_SFC_SW_DWN:{...monthly,ANN:5.05}}},parameters:{ALLSKY_SFC_SW_DWN:{units:'kW-hr/m^2/day'}},header:{range:'20-year climatology'}})};
+    throw new Error('URL inesperada: '+href);
+  };
+  const server=createServer({dataDir,fetchImpl});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const base='http://127.0.0.1:'+server.address().port;
+  const setup=await fetch(base+'/api/auth/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Admin Teste',email:'solar@example.com',password:'test-only-password'})});
+  const cookie=setup.headers.get('set-cookie').split(';')[0];
+  async function solar(){
+    const response=await fetch(base+'/api/solar/hsp?state=MG&city=Alfenas',{headers:{cookie}});
+    return {status:response.status,data:await response.json()};
+  }
+  const first=await solar();
+  assert.equal(first.status,200);assert.equal(first.data.hsp,5.05);assert.equal(first.data.monthly.JUN,5);
+  assert.ok(calls[1].includes('longitude=-45.94722'));
+  assert.equal(calls.length,2);
+  const second=await solar();
+  assert.equal(second.status,200);assert.equal(second.data.cached,true);
+  assert.equal(calls.length,2);
+});
