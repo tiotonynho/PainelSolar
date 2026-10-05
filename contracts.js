@@ -36,6 +36,7 @@
   $('#refreshContracts').onclick=refresh;
   const activeRecords=()=>records.filter(record=>record.status!=='archived');
   const recordClientKey=record=>record.proposal.document||record.proposal.clientName;
+  const proposalScope=proposal=>proposal.quoteType==='services'?'Serviços':number(Number(proposal.installedKwp)||0)+' kWp';
   const canDeleteRecord=record=>!record.acceptance&&['pending','archived'].includes(record.status);
   function renderList(){
     const target=$('#contractList');target.replaceChildren();
@@ -111,12 +112,12 @@
     const labels={pending:'Aguardando aceite',accepted:'Aceita — preparar contrato',prepared:'Aguardando assinatura',signed:'Assinada'};
     for(const record of [...visible].reverse().slice(0,10)){
       const row=document.createElement('tr');
-      for(const value of [record.id,record.proposal.clientName,number(record.proposal.installedKwp)+' kWp',money(record.proposal.investment),labels[record.status]])row.append(el('td',value));
+      for(const value of [record.id,record.proposal.clientName,proposalScope(record.proposal),money(record.proposal.investment),labels[record.status]])row.append(el('td',value));
       tbody.append(row);
     }
     if(!visible.length){const row=document.createElement('tr'),cell=el('td','Suas propostas compartilhadas ativas aparecerão aqui.');cell.colSpan=5;row.append(cell);tbody.append(row);}
     const metrics=document.querySelectorAll('.metric');
-    const stats=[['Propostas',String(visible.length),'Ativas na sua conta'],['Valor em propostas',money(visible.reduce((sum,r)=>sum+r.proposal.investment,0)),'Total sem arquivadas'],['Potência projetada',number(visible.reduce((sum,r)=>sum+r.proposal.installedKwp,0))+' kWp','Propostas ativas']];
+    const stats=[['Propostas',String(visible.length),'Ativas na sua conta'],['Valor em propostas',money(visible.reduce((sum,r)=>sum+r.proposal.investment,0)),'Total sem arquivadas'],['Potência projetada',number(visible.reduce((sum,r)=>sum+(Number(r.proposal.installedKwp)||0),0))+' kWp','Propostas ativas']];
     metrics.forEach((metric,i)=>{if(stats[i]){metric.querySelector('small').textContent=stats[i][0];metric.querySelector('strong').textContent=stats[i][1];metric.querySelector('em').textContent=stats[i][2];}});
     const clients=$('#clients');clients.classList.remove('empty-state');clients.replaceChildren();
     const heading=el('div','','panel-heading'),headingText=el('div');
@@ -200,6 +201,10 @@
     let links=$('#contractLinks');if(!links){links=el('div','','contract-links');links.id='contractLinks';$('#acceptanceSummary').after(links);}links.replaceChildren();showRecordLink(current,links);
     for(const [name,,value] of definitions)f.elements[name].value=current.contract?.details[name]??value;
     f.elements.date.value=current.contract?.details.date||today();
+    if(!current.contract){
+      const proposalServices=ContractCore.services?.(current.proposal);
+      if(proposalServices)f.elements.additional.value=proposalServices;
+    }
     f.elements.backup.disabled=!current.proposal.hybrid;f.elements.backup.parentElement.hidden=!current.proposal.hybrid;
     $('#contractReview').hidden=!current.contract||current.status==='signed';$('#contractText').value=current.contract?.text||'';
     $('#printDraft').disabled=!current.contract;

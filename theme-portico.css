@@ -129,6 +129,37 @@ input:focus, select:focus { border-color: #EC6C19; box-shadow: 0 0 0 3px rgba(23
 .field-section { border-top: 1px solid var(--line); padding-top: 14px; }
 .field-section h3 { margin: 0; font-size: 16px; color: #202020; }
 .field-section p, .field-help { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.quote-type-panel {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 30px;
+  border: 1px solid #E3E3E3;
+  border-radius: 17px;
+  background: #FFFFFF;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, .04);
+}
+.quote-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.quote-type-card {
+  min-height: 150px;
+  padding: 24px;
+  border: 1px solid #f2c6a9;
+  border-radius: 14px;
+  background: linear-gradient(110deg, #fff8f2, #fff);
+  color: #202020;
+  text-align: left;
+  cursor: pointer;
+}
+.quote-type-card:hover {
+  border-color: #EC6C19;
+  box-shadow: 0 12px 28px rgba(236, 108, 25, .14);
+}
+.quote-type-card strong, .quote-type-card span { display: block; }
+.quote-type-card strong { font: 800 20px Manrope; }
+.quote-type-card span { margin-top: 10px; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .rate-line {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -189,6 +220,35 @@ input:focus, select:focus { border-color: #EC6C19; box-shadow: 0 0 0 3px rgba(23
 .cost-total span { color: #a84712; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .cost-total strong { margin-top: 6px; font-size: 26px; color: #202020; }
 .cost-total small { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.service-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.service-option {
+  padding: 16px;
+  border: 1px solid #f2c6a9;
+  border-radius: 14px;
+  background: #fffdf9;
+}
+.service-option .check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #202020;
+  font-size: 13px;
+}
+.service-option .check-label input {
+  width: auto;
+  margin: 0;
+}
+.service-option > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+.service-total { background: linear-gradient(110deg, #fff8f2, #ffffff); }
 .hybrid-fields { min-width: 0; border: 1px solid #f2c6a9; border-radius: 14px; padding: 22px; background: #fff8f2; }
 .hybrid-fields legend { padding: 0 8px; font-weight: 800; }
 [hidden] { display: none !important; }
@@ -207,6 +267,35 @@ input:focus, select:focus { border-color: #EC6C19; box-shadow: 0 0 0 3px rgba(23
 .equipment-card h3 { margin: 9px 0; font-size: 22px; }
 .equipment-card p { margin: 0; font-size: 13px; color: var(--muted); }
 .storage-summary { padding: 22px; background: #202020; color: #fff; border-radius: 12px; font-size: 13px; line-height: 1.8; }
+.service-summary {
+  margin-top: 28px;
+  padding: 22px;
+  border: 1px solid #f2c6a9;
+  border-radius: 14px;
+  background: linear-gradient(110deg, #fff8f2, #fff);
+}
+.service-summary h3 {
+  margin: 0 0 12px;
+  font: 800 17px Manrope;
+}
+.service-summary ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.service-summary li {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f4d9c5;
+  font-size: 12px;
+}
+.service-summary p {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
 .technical-note { margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--line); }
 .technical-note h3 { font-size: 15px; }
 .technical-note p { font-size: 12px; color: var(--muted); line-height: 1.7; }
@@ -217,7 +306,10 @@ input:focus, select:focus { border-color: #EC6C19; box-shadow: 0 0 0 3px rgba(23
   .topbar { gap: 10px; }.topbar h1 { font-size: 20px; }.topbar .primary { padding: 10px; font-size: 11px; }
   .view { padding: 20px 12px; }.form-card { padding: 20px 14px; }
   .form-grid { grid-template-columns: 1fr; }.form-grid label.wide { grid-column: 1; }
+  .quote-type-panel { padding: 20px 14px; }
+  .quote-type-grid { grid-template-columns: 1fr; }
   .rate-line { grid-template-columns: 1fr; }
+  .service-options, .service-option > div { grid-template-columns: 1fr; }
   .dimensioning-preview { grid-template-columns: 1fr 1fr; }
   .step { gap: 4px; }.step span { font-size: 10px; }.stepper i { width: 12px; margin: 0 4px; }
   .proposal-cover, .proposal-page { padding: 28px 20px; min-height: auto; }

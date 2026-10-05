@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
@@ -52,8 +52,15 @@
     </section>
 
     <section id="quote" class="view">
-      <div class="stepper"><div class="step active"><b>1</b><span>Cliente</span></div><i></i><div class="step"><b>2</b><span>Consumo</span></div><i></i><div class="step"><b>3</b><span>Sistema</span></div><i></i><div class="step"><b>4</b><span>Proposta</span></div></div>
-      <form id="quoteForm">
+      <div class="quote-type-panel" id="quoteTypePanel">
+        <div class="form-title"><span>01</span><div><h2>Novo orçamento</h2><p>Escolha o modelo que deseja preencher.</p></div></div>
+        <div class="quote-type-grid">
+          <button type="button" class="quote-type-card" data-quote-type="system"><strong>Orçamento de sistema</strong><span>Projeto fotovoltaico completo com consumo, kit, geração, economia e payback.</span></button>
+          <button type="button" class="quote-type-card" data-quote-type="services"><strong>Orçamento de serviço</strong><span>Serviços avulsos como desmontagem, ampliação, troca de inversor e manutenção.</span></button>
+        </div>
+      </div>
+      <div class="stepper" id="quoteStepper" hidden><div class="step active"><b>1</b><span>Cliente</span></div><i></i><div class="step"><b>2</b><span>Consumo</span></div><i></i><div class="step"><b>3</b><span>Sistema</span></div><i></i><div class="step"><b>4</b><span>Proposta</span></div></div>
+      <form id="quoteForm" hidden>
         <div class="form-card step-panel active" data-step="1">
           <div class="form-title"><span>01</span><div><h2>Dados do cliente</h2><p>Informações de identificação e endereço da instalação.</p></div></div>
           <div class="form-grid">
@@ -78,6 +85,7 @@
           <div class="form-title"><span>03</span><div><h2>Parâmetros do sistema</h2><p>Ajuste tarifa, módulo, desempenho e condições comerciais.</p></div></div>
           <div class="form-grid">
             <div class="wide field-section"><h3>01 / Equipamentos do projeto</h3><p>Informe marca e modelo conforme o orçamento do fornecedor.</p></div>
+            <label class="wide quote-type-field" hidden>Tipo de orçamento<select name="quoteType"><option value="system" selected>Sistema fotovoltaico</option><option value="services">Serviços avulsos</option></select></label>
             <label class="wide">Tipo de sistema<select name="systemType"><option value="grid">Conectado à rede (on-grid)</option><option value="hybrid">Híbrido com baterias</option></select></label>
             <label>Marca dos módulos<input name="moduleBrand" list="moduleBrands" placeholder="Selecione ou digite" required></label>
             <datalist id="moduleBrands"><option value="Canadian Solar"><option value="JA Solar"><option value="Jinko Solar"><option value="LONGi"><option value="Trina Solar"></datalist>
@@ -113,6 +121,31 @@
             <div class="wide rate-line"><label>Custo de instalação e material (%)<input type="number" step="0.01" name="installationRate" value="23.08"></label><div class="amount-field"><span>Valor em R$</span><output id="installationAmount">R$ 0,00</output></div></div>
             <div class="wide rate-line"><label>Custo de Engenharia (%)<input type="number" step="0.01" name="engineeringRate" value="12"></label><div class="amount-field"><span>Valor em R$</span><output id="engineeringAmount">R$ 0,00</output></div></div>
             <div class="wide rate-line"><label>Impostos a pagar (%)<input type="number" step="0.01" name="taxRate" value="0"></label><div class="amount-field"><span>Valor em R$</span><output id="taxAmount">R$ 0,00</output></div></div>
+            <div class="wide field-section"><h3>03 / Serviços adicionais</h3><p>Use esta seção para orçar serviços avulsos junto do projeto.</p></div>
+            <div class="wide service-options">
+              <article class="service-option">
+                <label class="check-label"><input type="checkbox" name="serviceDismount" value="1"> Desmontagem de módulos</label>
+                <div><label>Quantidade<input type="number" min="0" step="1" name="serviceDismountQuantity" value="1"></label><label>Valor unitário (R$)<input type="number" min="0" step="0.01" name="serviceDismountUnit" value="0"></label></div>
+              </article>
+              <article class="service-option">
+                <label class="check-label"><input type="checkbox" name="serviceAssembly" value="1"> Montagem de sistema</label>
+                <div><label>Quantidade<input type="number" min="0" step="1" name="serviceAssemblyQuantity" value="1"></label><label>Valor unitário (R$)<input type="number" min="0" step="0.01" name="serviceAssemblyUnit" value="0"></label></div>
+              </article>
+              <article class="service-option">
+                <label class="check-label"><input type="checkbox" name="serviceExpansion" value="1"> Ampliação de sistema</label>
+                <div><label>Quantidade<input type="number" min="0" step="1" name="serviceExpansionQuantity" value="1"></label><label>Valor unitário (R$)<input type="number" min="0" step="0.01" name="serviceExpansionUnit" value="0"></label></div>
+              </article>
+              <article class="service-option">
+                <label class="check-label"><input type="checkbox" name="serviceInverterReplacement" value="1"> Troca de inversor</label>
+                <div><label>Quantidade<input type="number" min="0" step="1" name="serviceInverterReplacementQuantity" value="1"></label><label>Valor unitário (R$)<input type="number" min="0" step="0.01" name="serviceInverterReplacementUnit" value="0"></label></div>
+              </article>
+              <article class="service-option">
+                <label class="check-label"><input type="checkbox" name="serviceMaintenance" value="1"> Manutenção geral</label>
+                <div><label>Quantidade<input type="number" min="0" step="1" name="serviceMaintenanceQuantity" value="1"></label><label>Valor unitário (R$)<input type="number" min="0" step="0.01" name="serviceMaintenanceUnit" value="0"></label></div>
+              </article>
+            </div>
+            <label class="wide">Observações dos serviços<input name="serviceNotes" placeholder="Ex.: acesso ao telhado, deslocamento, materiais inclusos"></label>
+            <div class="wide cost-total service-total" aria-live="polite"><span>Total de serviços</span><strong id="additionalServicesAmount">R$ 0,00</strong><small>Somado ao investimento total quando houver serviço selecionado.</small></div>
             <div class="wide cost-total" aria-live="polite"><span>Custo total atualizado</span><strong id="totalInvestmentPreview">R$ 0,00</strong><small>Kit + percentuais sobre o kit + armazenamento, quando houver.</small></div>
             <label>Reajuste anual da energia<input type="number" step="0.01" name="energyInflation" value="0.10"></label>
             <label>Orientação<select name="orientation"><option selected>Norte</option><option>Nordeste</option><option>Noroeste</option><option>Leste</option><option>Oeste</option></select></label>
@@ -158,6 +191,7 @@
           <p class="lead">A economia produzida pelo sistema recupera o investimento e continua gerando valor.</p>
           <div class="finance-highlight"><div><small>INVESTIMENTO TOTAL</small><strong id="pInvestment"></strong><span>Equipamentos, projeto e instalação</span></div><div><small>PAYBACK SIMPLES</small><strong id="pPayback"></strong><span>Retorno estimado</span></div></div>
           <div class="economy-row"><div><small>Economia no 1º ano</small><strong id="pAnnualSavings"></strong></div><div><small>Economia média mensal</small><strong id="pMonthlySavings"></strong></div><div><small>Vida útil considerada</small><strong>25 anos</strong></div></div>
+          <div class="service-summary" id="pAdditionalServicesBlock" hidden><h3>Serviços adicionais orçados</h3><ul id="pAdditionalServices"></ul><p id="pAdditionalServicesNotes"></p></div>
           <div class="equipment"><h3>Equipamentos e serviços inclusos</h3><ul id="pEquipment"></ul></div>
           <div class="terms"><h3>Condições comerciais</h3><p>Pagamento à vista: 80% na assinatura do contrato e 20% após a instalação. Proposta válida por 3 dias, sujeita à disponibilidade dos equipamentos.</p></div>
           <footer><span>Pórtico Solar Energy • Alfenas/MG</span><span>antoniocruz@porticosolar.com.br • (35) 98409-2508</span></footer>

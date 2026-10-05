@@ -93,7 +93,7 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
         if(r.expiresAt<Date.now()&&r.status==='pending')throw fail('Proposta expirada. Solicite um novo link.',410);
         if(req.method==='GET'&&!action){
           const p=r.proposal;
-          return reply(200,{id:r.id,status:r.status,proposal:{clientName:p.clientName,address:p.address,city:p.city,state:p.state,installedKwp:p.installedKwp,annualGeneration:p.annualGeneration,investment:p.investment,annualSavings:p.annualSavings,equipment:Core.equipment(p)},contract:r.contract?{text:r.contract.text,revision:r.contract.revision,hash:r.contract.hash}:null,signature:r.signature||null,events:r.signature?r.audit:[]});
+          return reply(200,{id:r.id,status:r.status,proposal:{quoteType:p.quoteType,clientName:p.clientName,address:p.address,city:p.city,state:p.state,installedKwp:p.installedKwp,annualGeneration:p.annualGeneration,investment:p.investment,annualSavings:p.annualSavings,equipment:Core.equipment(p),services:Core.services(p)},contract:r.contract?{text:r.contract.text,revision:r.contract.revision,hash:r.contract.hash}:null,signature:r.signature||null,events:r.signature?r.audit:[]});
         }
         if(req.method!=='POST')throw fail('Método não permitido.',405);
         const data=await body(req);

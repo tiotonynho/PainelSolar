@@ -13,6 +13,16 @@
     for(const text of [record.id,p.clientName,p.address+', '+p.city+'/'+p.state,p.equipment,'Potência: '+p.installedKwp+' kWp','Geração estimada: '+Math.round(p.annualGeneration)+' kWh/ano','Investimento: '+money(p.investment),'Pagamento: 80% na assinatura do contrato e 20% após a instalação.']){
       const row=document.createElement('p');row.textContent=text;target.append(row);
     }
+    if(p.services){
+      const row=document.createElement('p');
+      row.textContent='Serviços adicionais: '+p.services;
+      target.insertBefore(row,target.children[4]||null);
+    }
+    if(p.quoteType==='services'){
+      const start=p.services?5:4;
+      target.children[start]?.remove();
+      target.children[start]?.remove();
+    }
     $('#publicContract').hidden=!record.contract;
     $('#publicContract').textContent=record.contract?.text||'';
     $('#publicForm').hidden=!['pending','prepared'].includes(record.status);

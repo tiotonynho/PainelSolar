@@ -1,4 +1,4 @@
-const {test}=require('node:test');
+﻿const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
@@ -6,7 +6,7 @@ const vm=require('node:vm');
 const crypto=require('node:crypto');
 const {createServer}=require('../server');
 const Core=require('../contract-core');
-const proposal={clientName:'Cliente Teste',document:'12345678901',address:'Rua Exemplo, 10',city:'Alfenas',state:'MG',moduleBrand:'Marca M',moduleModel:'Modelo M',modulePower:550,modules:6,inverterBrand:'Marca I',inverterModel:'Modelo I',inverterPower:3,inverterQuantity:1,investment:9572,installedKwp:3.3,annualGeneration:4600,annualSavings:4200,hsp:5.16,performance:.74,tariff:1.15};
+const proposal={clientName:'Cliente Teste',document:'12345678901',address:'Rua Exemplo, 10',city:'Alfenas',state:'MG',moduleBrand:'Marca M',moduleModel:'Modelo M',modulePower:550,modules:6,inverterBrand:'Marca I',inverterModel:'Modelo I',inverterPower:3,inverterQuantity:1,investment:9572,installedKwp:3.3,annualGeneration:4600,annualSavings:4200,hsp:5.16,performance:.74,tariff:1.15,additionalServices:[{label:'Troca de inversor',quantity:1,unitValue:450,total:450}],serviceNotes:'Inclui visita técnica.'};
 const consent={name:'Cliente Teste',document:'12345678901',email:'cliente@example.com',confirmed:true};
 const details={company:'Empresa Teste',companyDocument:'12345678000100',companyAddress:'Rua Comercial',representative:'Representante',engineer:'Engenheiro',utility:'Distribuidora',structure:'Telhado',payment:'80% + 20%',additional:'Nenhum',deadline:'60',meter:'Conforme distribuidora',jurisdiction:'Alfenas',date:'2026-09-27',backup:'Iluminação'};
 const templateContext={window:{}};vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../contract-template.js'),'utf8'),templateContext);
@@ -15,12 +15,20 @@ test('modelo remove dados do cliente original e preenche equipamentos e anexo',(
   const record=Core.accept(proposal,{...consent,date:new Date().toISOString(),channel:'Link',evidence:'Registro'},'PT-TESTE');
   proposal.clientName='Nome alterado depois';assert.equal(record.proposal.clientName,'Cliente Teste');proposal.clientName='Cliente Teste';
   const text=Core.generate(record,details,template);
-  assert.ok(text.includes('Marca M Modelo M'));assert.ok(text.includes('ANEXO B'));
+  assert.ok(text.includes('Marca M Modelo M'));assert.ok(text.includes('Troca de inversor'));assert.ok(text.includes('ANEXO B'));
   assert.ok(!text.includes('{{'));assert.ok(!text.includes('LIVIA NASCIMENTO'));assert.ok(!text.includes('BelCrad'));
   assert.ok(!text.includes('19 de junho de 2026'));assert.ok(!text.includes('068.651'));
   assert.throws(()=>Core.generate({proposal},details,template),/aceite/);
   const hybrid={...record,proposal:{...record.proposal,hybrid:true,batteryBrand:'Bateria',batteryModel:'Modelo B',batteryQuantity:2,storageCapacity:10.2,usableCapacity:9.18,autonomy:18.36,backupLoad:.5}};
   assert.ok(Core.generate(hybrid,details,template).includes('Escopo dos circuitos de backup: Iluminação'));
+});
+test('modelo aceita proposta somente de serviços sem kit',()=>{
+  const serviceProposal={clientName:'Cliente Serviço',document:'12345678901',address:'Rua Serviço, 20',city:'Alfenas',state:'MG',quoteType:'services',investment:1200,additionalServices:[{label:'Manutenção geral',quantity:1,unitValue:1200,total:1200}],serviceNotes:'Limpeza e reaperto incluídos.'};
+  const record=Core.accept(serviceProposal,{...consent,name:'Cliente Serviço',date:new Date().toISOString(),channel:'Link',evidence:'Registro'},'PT-SERVICO');
+  assert.equal(Core.equipment(record.proposal),'Serviços técnicos fotovoltaicos');
+  const text=Core.generate(record,{...details,additional:''},template);
+  assert.ok(text.includes('Manutenção geral'));
+  assert.ok(text.includes('ANEXO B'));
 });
 test('API: autenticação, aceite, revisão, assinatura imutável e persistência',async t=>{
   const dataDir=path.join(__dirname,'../tmp','contracts-test-'+crypto.randomUUID());
