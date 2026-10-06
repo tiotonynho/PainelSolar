@@ -2,6 +2,10 @@
 
 Protótipo web baseado no modelo de proposta da Pórtico Solar Energy.
 
+## Supplier ingestion
+
+The platform includes a controlled supplier CSV pipeline with staging, validation, normalization, dry-run, diff, explicit publish, rollback and price history. No real supplier integration or fictitious commercial data is enabled by default.
+
 ## Como executar
 
 Use Node.js 24 ou superior. A plataforma agora exige o servidor para autenticar as contas. Abra o endereço HTTP exibido no terminal, em vez do arquivo HTML.
@@ -11,6 +15,8 @@ node server.js
 ```
 
 Depois acesse `http://127.0.0.1:8080`. No primeiro acesso, crie a conta administradora com nome, e-mail e senha de pelo menos 10 caracteres. Não há dependências npm para instalar.
+
+O schema inicial do Supplier Hub é aplicado automaticamente pelo servidor por meio das migrations em `migrations/`. Para criar os fornecedores, equipamentos e kits fictícios de desenvolvimento, execute `node catalog-seed.js`. O seed não cria preços ou ofertas comerciais.
 
 ## Contas e equipe
 
@@ -33,6 +39,8 @@ O formulário de orçamento em edição continua temporário. Os registros são 
 - Dimensionamento automático de potência e módulos
 - Estimativa de geração mensal e anual
 - Formação de preço baseada no modelo Excel
+- PricingEngine com modo LEGACY compatível, cálculo em centavos e breakdown interno
+- CommercialConfig versionada para propostas STANDARD, com snapshot de preço e repricing administrativo explícito
 - Economia e payback simples
 - Proposta comercial responsiva
 - Impressão ou exportação para PDF pelo navegador

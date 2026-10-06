@@ -76,6 +76,7 @@ test('API: autenticação, aceite, revisão, assinatura imutável e persistênci
   assert.equal((await request('/api/records/'+id+'/contract','PUT',{text,details,reviewed:true,previousRevision:0},true)).status,409);
   const publicRecord=(await request(url)).data;
   assert.ok(!('kitCost' in publicRecord.proposal));assert.ok(!('acceptance' in publicRecord));
+  for(const internalField of ['equipmentCost','freightCost','installerCost','grossProfit','internalMargin','supplier','supplierScore','procurementScore'])assert.ok(!(internalField in publicRecord.proposal),`campo interno exposto: ${internalField}`);
   assert.equal((await request(url+'/sign','POST',{...consent,hash:'outdated'})).status,409);
   const signed=await request(url+'/sign','POST',{...consent,hash:publicRecord.contract.hash});assert.equal(signed.status,200);
   assert.equal((await request(url+'/sign','POST',{...consent,hash:publicRecord.contract.hash})).status,409);

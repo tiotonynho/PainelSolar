@@ -2,12 +2,15 @@
   const clone=value=>JSON.parse(JSON.stringify(value));
   const currency=value=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(value);
   const decimal=value=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:2}).format(value);
+  const proposalPrice=proposal=>proposal?.customerPrice!==undefined&&proposal?.customerPrice!==null
+    ?Number(proposal.customerPrice):Number(proposal?.investment);
   function accept(proposal, acceptance, id){
     const serviceQuote=proposal?.quoteType==='services'||proposal?.servicesQuote===true;
-    if(!proposal || !proposal.clientName || !Number.isFinite(proposal.investment))throw new Error('Gere uma proposta completa antes de registrar o aceite.');
+    if(!proposal || !proposal.clientName || !Number.isFinite(proposalPrice(proposal)))throw new Error('Gere uma proposta completa antes de registrar o aceite.');
     if(!serviceQuote&&(!proposal.moduleBrand || !proposal.moduleModel || !proposal.inverterBrand || !proposal.inverterModel))throw new Error('Gere uma proposta completa antes de registrar o aceite.');
     if(serviceQuote&&!services(proposal))throw new Error('Informe ao menos um serviço antes de registrar o aceite.');
     const numericKeys=serviceQuote?['investment']:['investment','installedKwp','annualGeneration','annualSavings','modulePower','modules','inverterPower','inverterQuantity'];
+    if(Object.prototype.hasOwnProperty.call(proposal,'customerPrice'))numericKeys.push('customerPrice');
     for(const key of numericKeys){
       if(!Number.isFinite(Number(proposal[key]))||Number(proposal[key])<0)throw new Error('Os dados técnicos da proposta são inválidos.');
     }
@@ -38,7 +41,7 @@
     const serviceText=services(p);
     const tokens={
       partes:`Pelo presente instrumento particular, ${details.company}, sob CNPJ nº ${details.companyDocument}, estabelecida à ${details.companyAddress}, representada por ${details.representative}, responsável técnico ${details.engineer}, aqui denominada CONTRATADA, e ${p.clientName}, sob CPF/CNPJ nº ${record.acceptance.document}, com endereço à ${p.address}, ${p.city}/${p.state}, aqui denominado(a) CONTRATANTE, têm entre si justo e contratado o seguinte:`,
-      distribuidora:details.utility,equipamentos:equipment(p),estrutura:details.structure,valor:currency(p.investment),
+      distribuidora:details.utility,equipamentos:equipment(p),estrutura:details.structure,valor:currency(proposalPrice(p)),
       potencia:decimal(p.installedKwp)+' kWp',geracao:decimal(p.annualGeneration)+' kWh',pagamento:details.payment,
       adicionais:details.additional||serviceText||'Nenhum serviço adicional.',prazo:details.deadline,medicao:details.meter,foro:details.jurisdiction,
       cidade:p.city,data:new Intl.DateTimeFormat('pt-BR',{dateStyle:'long'}).format(new Date(details.date+'T12:00:00')),
@@ -53,14 +56,14 @@
       'Cliente: '+p.clientName+' - Instalação: '+p.address+', '+p.city+'/'+p.state,
       'Equipamentos: '+equipment(p),
       'Potência instalada: '+decimal(p.installedKwp)+' kWp. Geração anual estimada: '+decimal(p.annualGeneration)+' kWh.',
-      'Investimento total: '+currency(p.investment)+'. Condição aceita na proposta: 80% na assinatura do contrato e 20% após a instalação.',
+      'Investimento total: '+currency(proposalPrice(p))+'. Condição aceita na proposta: 80% na assinatura do contrato e 20% após a instalação.',
       'Economia anual estimada: '+currency(p.annualSavings)+'. Premissas: HSP '+p.hsp+' h/dia; performance ratio '+p.performance+'; tarifa '+currency(Number(p.tariff))+'/kWh. Estimativas sujeitas às condições da instalação.',
       'Aceite da proposta: '+record.acceptance.name+' em '+new Date(record.acceptance.date).toLocaleString('pt-BR')+'. Canal: '+record.acceptance.channel+'.'
     ];
     if(serviceText)annex.splice(3,0,'Serviços adicionais: '+serviceText+'.');
     return text+'\n\nANEXO B - RESUMO DA PROPOSTA ACEITA\n\n'+annex.join('\n\n');
   }
-  const api={accept,generate,equipment,services,clone};
+  const api={accept,generate,equipment,services,clone,proposalPrice};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.ContractCore=api;
 })(typeof window==='undefined'?globalThis:window);

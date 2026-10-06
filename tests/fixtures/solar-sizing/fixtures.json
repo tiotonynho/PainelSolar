@@ -1,0 +1,52 @@
+[
+  {
+    "name": "A-low",
+    "input": {"monthlyConsumptions": [100,100,100,100,100,100,100,100,100,100,100,100], "connectionType": "MONOPHASIC", "hsp": 5.1675, "performanceRatio": 0.74, "modulePowerWp": 550},
+    "expected": {"averageConsumptionKwh": 100, "availabilityConsumptionKwh": 30, "compensableConsumptionKwh": 70, "requiredDcPowerWp": 602.1604829946439, "moduleCount": 2, "installedDcPowerWp": 1100, "estimatedAnnualGenerationKwh": 1534.4746560000003}
+  },
+  {
+    "name": "B-medium",
+    "input": {"monthlyConsumptions": [400,400,400,400,400,400,400,400,400,400,400,400], "connectionType": "BIPHASIC", "hsp": 5.1675, "performanceRatio": 0.74, "modulePowerWp": 550},
+    "expected": {"averageConsumptionKwh": 400, "availabilityConsumptionKwh": 50, "compensableConsumptionKwh": 350, "requiredDcPowerWp": 3010.802414973219, "moduleCount": 6, "installedDcPowerWp": 3300, "estimatedAnnualGenerationKwh": 4603.423967999999}
+  },
+  {
+    "name": "C-high",
+    "input": {"monthlyConsumptions": [1200,1200,1200,1200,1200,1200,1200,1200,1200,1200,1200,1200], "connectionType": "TRIPHASIC", "hsp": 4.8, "performanceRatio": 0.8, "modulePowerWp": 625},
+    "expected": {"averageConsumptionKwh": 1200, "availabilityConsumptionKwh": 100, "compensableConsumptionKwh": 1100, "requiredDcPowerWp": 9422.97149122807, "moduleCount": 16, "installedDcPowerWp": 10000, "estimatedAnnualGenerationKwh": 14008.319999999996}
+  },
+  {
+    "name": "D-mono",
+    "input": {"monthlyConsumptions": [220,260,300,340,380,420,460,500,540,580,620,660], "connectionType": "MONOPHASIC", "hsp": 5, "performanceRatio": 0.75, "modulePowerWp": 550},
+    "expected": {"averageConsumptionKwh": 440, "availabilityConsumptionKwh": 30, "compensableConsumptionKwh": 410, "requiredDcPowerWp": 3596.4912280701756, "moduleCount": 7, "installedDcPowerWp": 3850, "estimatedAnnualGenerationKwh": 5266.8}
+  },
+  {
+    "name": "E-bi",
+    "input": {"monthlyConsumptions": [220,260,300,340,380,420,460,500,540,580,620,660], "connectionType": "BIPHASIC", "hsp": 5, "performanceRatio": 0.75, "modulePowerWp": 550},
+    "expected": {"averageConsumptionKwh": 440, "availabilityConsumptionKwh": 50, "compensableConsumptionKwh": 390, "requiredDcPowerWp": 3421.0526315789475, "moduleCount": 7, "installedDcPowerWp": 3850, "estimatedAnnualGenerationKwh": 5266.8}
+  },
+  {
+    "name": "F-tri",
+    "input": {"monthlyConsumptions": [220,260,300,340,380,420,460,500,540,580,620,660], "connectionType": "TRIPHASIC", "hsp": 5, "performanceRatio": 0.75, "modulePowerWp": 550},
+    "expected": {"averageConsumptionKwh": 440, "availabilityConsumptionKwh": 100, "compensableConsumptionKwh": 340, "requiredDcPowerWp": 2982.456140350877, "moduleCount": 6, "installedDcPowerWp": 3300, "estimatedAnnualGenerationKwh": 4514.399999999999}
+  },
+  {
+    "name": "G-module",
+    "input": {"monthlyConsumptions": [850,850,850,850,850,850,850,850,850,850,850,850], "connectionType": "BIPHASIC", "hsp": 4.8, "performanceRatio": 0.8, "modulePowerWp": 610},
+    "expected": {"averageConsumptionKwh": 850, "availabilityConsumptionKwh": 50, "compensableConsumptionKwh": 800, "requiredDcPowerWp": 6853.070175438596, "moduleCount": 12, "installedDcPowerWp": 7320, "estimatedAnnualGenerationKwh": 10254.090240000001}
+  },
+  {
+    "name": "H-hsp",
+    "input": {"monthlyConsumptions": [850,850,850,850,850,850,850,850,850,850,850,850], "connectionType": "BIPHASIC", "hsp": 4.2, "performanceRatio": 0.8, "modulePowerWp": 625},
+    "expected": {"averageConsumptionKwh": 850, "availabilityConsumptionKwh": 50, "compensableConsumptionKwh": 800, "requiredDcPowerWp": 7832.080200501252, "moduleCount": 13, "installedDcPowerWp": 8125, "estimatedAnnualGenerationKwh": 9959.04}
+  },
+  {
+    "name": "I-performance",
+    "input": {"monthlyConsumptions": [850,850,850,850,850,850,850,850,850,850,850,850], "connectionType": "BIPHASIC", "hsp": 4.8, "performanceRatio": 0.82, "modulePowerWp": 625},
+    "expected": {"averageConsumptionKwh": 850, "availabilityConsumptionKwh": 50, "compensableConsumptionKwh": 800, "requiredDcPowerWp": 6685.92212237912, "moduleCount": 11, "installedDcPowerWp": 6875, "estimatedAnnualGenerationKwh": 9871.487999999998}
+  },
+  {
+    "name": "J-boundary",
+    "input": {"monthlyConsumptions": [0,0,0,0,0,0,0,0,0,0,0,0], "connectionType": "MONOPHASIC", "hsp": 1, "performanceRatio": 0.01, "modulePowerWp": 1000},
+    "expected": {"averageConsumptionKwh": 0, "availabilityConsumptionKwh": 30, "compensableConsumptionKwh": 0, "requiredDcPowerWp": 0, "moduleCount": 1, "installedDcPowerWp": 1000, "estimatedAnnualGenerationKwh": 3.6479999999999997}
+  }
+]

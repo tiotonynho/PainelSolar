@@ -20,7 +20,7 @@
     <p id="contractMessage" role="status"></p></div></div><article class="contract-document" id="contractDocument" hidden></article>`;
   $('main').append(editor);
   const approval=document.createElement('div');approval.className='panel acceptance-panel';
-  approval.innerHTML='<h3>Aceite e assinatura por link</h3><p id="proposalApprovalStatus">Crie o link para o cliente revisar e aceitar esta proposta.</p><label class="check-label test-record-label"><input type="checkbox" id="testRecord">Registro de teste</label><button class="primary" id="shareProposal">Gerar link do cliente</button><p id="acceptanceMessage" role="status"></p><a id="customerLink" target="_blank" rel="noopener noreferrer" hidden></a>';
+  approval.innerHTML='<h3>Aceite e assinatura por link</h3><p id="proposalApprovalStatus">Crie o link para o cliente revisar e aceitar esta proposta.</p><div id="procurementSummary" class="field-help" hidden></div><label class="check-label test-record-label"><input type="checkbox" id="testRecord">Registro de teste</label><button class="primary" id="shareProposal">Gerar link do cliente</button><p id="acceptanceMessage" role="status"></p><a id="customerLink" target="_blank" rel="noopener noreferrer" hidden></a>';
   $('.proposal-actions').after(approval);
   const api=SolarApi.createClient();
   const loginShortcut=el('button','Entrar na plataforma','ghost');loginShortcut.hidden=true;
@@ -38,6 +38,26 @@
   const recordClientKey=record=>record.proposal.document||record.proposal.clientName;
   const proposalScope=proposal=>proposal.quoteType==='services'?'Serviços':number(Number(proposal.installedKwp)||0)+' kWp';
   const canDeleteRecord=record=>!record.acceptance&&['pending','archived'].includes(record.status);
+  function renderProcurementSummary(proposal){
+    const target=$('#procurementSummary');target.replaceChildren();target.hidden=false;
+    const source=proposal?.pricingSource||proposal?.pricingSnapshot?.pricingSource||'LEGACY';
+    target.append(el('strong','Fonte do custo: '+source));
+    if(source!=='PROCUREMENT'){target.append(el('p','Precificação manual/legada.'));return;}
+    const snapshot=proposal?.pricingSnapshot?.procurementSnapshot;
+    if(!snapshot){target.append(el('p','REVISÃO COMERCIAL NECESSÁRIA: snapshot de procurement indisponível.'));return;}
+    const details=[
+      `Kit: ${snapshot.kitName||snapshot.kitId||'não informado'}`,
+      `Fornecedor: ${snapshot.supplierName||snapshot.supplierId||'não informado'}`,
+      `Oferta: ${snapshot.supplierKitOfferId||'não informado'}`,
+      `Estoque: ${snapshot.stockStatus||'UNKNOWN'}`,
+      `Prazo: ${snapshot.leadTimeDays===null||snapshot.leadTimeDays===undefined?'desconhecido':snapshot.leadTimeDays+' dias'}`,
+      `Modo: ${snapshot.selectionMode||proposal.selectionMode||'AUTO'}`
+    ];
+    for(const detail of details)target.append(el('span',detail+' · '));
+    if(snapshot.requiresReview||proposal.pricingSnapshot.requiresReview){
+      target.append(el('p','REVISÃO COMERCIAL NECESSÁRIA'+(snapshot.blockingReasons?.length?': '+snapshot.blockingReasons.join(', '):'.')));
+    }
+  }
   function renderList(){
     const target=$('#contractList');target.replaceChildren();
     if(!records?.length){target.append(el('p','Nenhum contrato registrado. Gere uma proposta e registre o aceite do cliente.'));return;}
@@ -150,7 +170,7 @@
     pending={id:uid(),proposal:ContractCore.clone(proposal)};
     $('#pNumber').textContent=pending.id;
     $('#proposalApprovalStatus').textContent='Aguardando aceite do cliente · '+pending.id;
-    $('#shareProposal').disabled=false;$('#customerLink').hidden=true;$('#acceptanceMessage').textContent='';loginShortcut.hidden=true;returnToProposal.hidden=false;
+    renderProcurementSummary(pending.proposal);$('#shareProposal').disabled=false;$('#customerLink').hidden=true;$('#acceptanceMessage').textContent='';loginShortcut.hidden=true;returnToProposal.hidden=false;
   }
   window.addEventListener('proposalbuilt',event=>proposalReady(event.detail));
   if(lastResult)proposalReady(lastResult);

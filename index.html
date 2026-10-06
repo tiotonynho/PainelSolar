@@ -107,6 +107,8 @@
               <label class="wide">Custo adicional de armazenamento e backup (R$)<input name="batteryCost" type="number" min="0" step="0.01" placeholder="Baterias, proteções e instalação de backup" required></label>
             </div><p class="field-help">Confirme a compatibilidade entre inversor e baterias. A autonomia é teórica e não considera perdas.</p></fieldset>
             <div class="wide field-section"><h3>02 / Dimensionamento e investimento</h3><p>Inclua módulos e inversores no custo do kit. Informe o armazenamento separadamente.</p></div>
+            <label>Modo de precificação<select name="pricingMode"><option value="LEGACY">LEGACY — compatibilidade</option><option value="STANDARD">STANDARD — configuração comercial</option></select></label>
+            <label class="wide" id="standardEquipmentCostField" hidden>Custo manual do equipamento (R$)<input name="equipmentCost" type="number" min="0" step="0.01" value="5200"><small class="field-help">Usado no modo STANDARD até a integração automática com Procurement.</small></label>
             <label>Tarifa de energia (R$/kWh)<input type="number" step="0.01" name="tariff" value="1.15"></label>
             <label>HSP médio diário<input type="number" step="0.01" name="hsp" value="5.1675"><small class="field-help" id="hspStatus">Escolha UF e cidade para atualizar automaticamente.</small></label>
             <label>Performance ratio<input type="number" step="0.01" name="performance" value="0.74"></label>
@@ -200,14 +202,39 @@
     </section>
 
     <section id="clients" class="view empty-state"><span>♙</span><h2>Clientes</h2><p>Os clientes cadastrados aparecerão aqui nas próximas versões.</p><button class="primary openQuote">Cadastrar primeiro cliente</button></section>
-    <section id="settings" class="view empty-state"><span>⚙</span><h2>Configurações comerciais</h2><p>Tarifas, equipamentos, margens e modelos de proposta serão administrados aqui.</p><button class="primary openQuote">Usar configurações do modelo</button></section>
+    <section id="settings" class="view">
+      <div class="panel commercial-config-panel">
+        <div class="panel-heading"><div><span class="section-kicker">ADMINISTRAÇÃO</span><h2>Configuração comercial</h2><p>Crie versões imutáveis dos parâmetros usados pelo modo STANDARD. Propostas antigas preservam o snapshot aplicado.</p></div></div>
+        <form id="commercialConfigForm"><div class="form-grid">
+          <label>Nome da versão<input name="name" required maxlength="180" placeholder="Ex.: Tabela comercial setembro"></label>
+          <label>Modo<select name="pricingMode"><option value="STANDARD">STANDARD</option><option value="LEGACY">LEGACY</option></select></label>
+          <label>Instalação padrão (R$)<input name="defaultInstallationCost" type="number" min="0" step="0.01" value="0"></label>
+          <label>Engenharia padrão (R$)<input name="defaultEngineeringCost" type="number" min="0" step="0.01" value="0"></label>
+          <label>Markup padrão (%)<input name="defaultMarkupRate" type="number" min="0" max="99.99" step="0.01" placeholder="Deixe vazio se usar margem alvo"></label>
+          <label>Margem alvo padrão (%)<input name="defaultTargetMarginRate" type="number" min="0" max="99.99" step="0.01" placeholder="Deixe vazio se usar markup"></label>
+          <label>Comissão padrão (%)<input name="defaultCommissionRate" type="number" min="0" max="100" step="0.01" value="0"></label>
+          <label>Base da comissão<select name="defaultCommissionBase"><option value="">Sem comissão</option><option value="DIRECT_COST">Custo direto</option><option value="PRICE_BEFORE_TAX">Preço antes do imposto</option></select></label>
+          <label>Imposto padrão (%)<input name="defaultTaxRate" type="number" min="0" max="100" step="0.01" value="0"></label>
+          <label>Base do imposto<select name="defaultTaxBase"><option value="">Sem imposto</option><option value="DIRECT_COST">Custo direto</option><option value="PRICE_BEFORE_TAX">Preço antes do imposto</option><option value="CUSTOMER_PRICE">Preço do cliente</option></select></label>
+          <label>Margem mínima (%)<input name="minimumMarginRate" type="number" min="0" max="99.99" step="0.01" placeholder="Opcional"></label>
+          <label class="check-label"><input name="defaultFreightRequired" type="checkbox"> Frete obrigatório por padrão</label>
+        </div><button class="primary" type="submit">Criar nova versão</button></form>
+        <p id="commercialConfigMessage" role="status"></p><div id="commercialConfigList"></div><div id="commercialConfigAudit"></div>
+      </div>
+    </section>
   </main>
   <script src="api-client.js"></script>
   <script src="contract-template.js"></script>
   <script src="contract-core.js"></script>
   <script src="localities.js"></script>
+  <script src="solar-sizing-engine.js"></script>
+  <script src="money.js"></script>
+  <script src="pricing-config.js"></script>
+  <script src="pricing-engine.js"></script>
   <script src="app.js"></script>
   <script src="contracts.js"></script>
   <script src="auth-ui.js"></script>
+  <script src="commercial-config-ui.js"></script>
+  <script src="supplier-import-ui.js"></script>
 </body>
 </html>

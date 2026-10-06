@@ -1,6 +1,5 @@
 const months=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
-const defaultMonthlyHsp=[5.18,5.61,5.09,5.19,4.82,4.66,4.98,5.70,5.38,5.33,4.94,5.13];
-let activeMonthlyHsp=[...defaultMonthlyHsp];
+let activeMonthlyHsp=[...SolarSizingEngine.DEFAULT_MONTHLY_HSP];
 let hspSourceLabel='Valor padrão/manual';
 let hspLookupId=0;
 const form=document.querySelector('#quoteForm');
@@ -25,6 +24,7 @@ const number=(value,digits=2)=>new Intl.NumberFormat('pt-BR',{minimumFractionDig
 const field=name=>form.elements[name];
 const values=()=>Object.fromEntries(new FormData(form));
 const solarApi=window.SolarApi?.createClient?.({timeoutMs:20000});
+let activeCommercialConfig=null;
 
 function resetCityOptions(message='Escolha a UF primeiro'){
   const city=field('city');
@@ -94,7 +94,7 @@ function showView(id){
 
 function updateAverage(){
   const list=consumptionValues();
-  const avg=monthlyAverage(list);
+  const avg=SolarSizingEngine.calculateAverageConsumption(list);
   const available=Number(field('connection').value)||0;
   document.querySelector('#averageConsumption').textContent=`${number(avg,0)} kWh`;
   document.querySelector('#compensableConsumption').textContent=`${number(Math.max(avg-available,0),0)} kWh`;
@@ -104,24 +104,22 @@ function consumptionValues(){
   return [...document.querySelectorAll('.consumption')].map(i=>Number(i.value)||0);
 }
 
-function monthlyAverage(list){
-  return list.reduce((a,b)=>a+b,0)/12;
-}
-
 function dimensioningEstimate(data=values(),consumption=consumptionValues()){
-  const average=monthlyAverage(consumption);
-  const availability=Number(data.connection)||0;
-  const targetMonthly=Math.max(average-availability,0);
-  const hsp=Math.max(Number(data.hsp)||0,0);
-  const performance=Math.max(Number(data.performance)||0,0);
-  const modulePower=Math.max(Number(data.modulePower)||0,0);
-  const requiredKwp=hsp&&performance?targetMonthly/(hsp*30.4*performance):0;
-  const modules=modulePower?Math.max(1,Math.ceil(requiredKwp*1000/modulePower)):0;
-  const installedKwp=modules*modulePower/1000;
-  const referenceHsp=activeMonthlyHsp.reduce((a,b)=>a+b,0)/12;
-  const generation=activeMonthlyHsp.map(h=>h/referenceHsp*hsp*30.4*performance*installedKwp);
-  const annualGeneration=generation.reduce((a,b)=>a+b,0);
-  return {consumption,average,targetMonthly,hsp,performance,modulePower,requiredKwp,modules,installedKwp,generation,annualGeneration};
+  const input={monthlyConsumptions:consumption,hsp:Number(data.hsp),performanceRatio:Number(data.performance),modulePowerWp:Number(data.modulePower),connectionType:data.connection,monthlyHspProfile:activeMonthlyHsp};
+  const sizing=SolarSizingEngine.validateSizingInput(input).valid?SolarSizingEngine.calculateSizing(input):SolarSizingEngine.emptySizingResult(input);
+  return {
+    ...sizing,
+    consumption:sizing.monthlyConsumptions,
+    average:sizing.averageConsumptionKwh,
+    targetMonthly:sizing.compensableConsumptionKwh,
+    performance:sizing.performanceRatio,
+    modulePower:sizing.modulePowerWp,
+    requiredKwp:sizing.requiredDcPowerWp/1000,
+    modules:sizing.moduleCount,
+    installedKwp:sizing.installedDcPowerWp/1000,
+    generation:sizing.monthlyGenerationKwh,
+    annualGeneration:sizing.estimatedAnnualGenerationKwh
+  };
 }
 
 function updateDimensioningPreview(){
@@ -161,9 +159,67 @@ function isServicesQuote(data=values()){
   return data.quoteType==='services';
 }
 
+function legacyPricingFor(data){
+  if(!window.PricingEngine)return null;
+  const servicesQuote=isServicesQuote(data);
+  return window.PricingEngine.calculatePricing({
+    mode:'LEGACY',
+    servicesQuote,
+    hybrid:!servicesQuote&&data.systemType==='hybrid',
+    kitCost:Number(data.kitCost)||0,
+    batteryCost:Number(data.batteryCost)||0,
+    additionalServices:selectedAdditionalServices(data),
+    legacyRates:{
+      marginRate:percentageRate(data,'margin'),
+      installationRateDecimal:percentageRate(data,'installationRate'),
+      engineeringRateDecimal:percentageRate(data,'engineeringRate'),
+      taxRateDecimal:percentageRate(data,'taxRate')
+    }
+  });
+}
+
+function standardPricingFor(data){
+  if(!window.PricingEngine)return null;
+  const config=activeCommercialConfig;
+  return window.PricingEngine.calculatePricing({
+    mode:'STANDARD',
+    equipmentCost:Number(data.equipmentCost||0),
+    installationCostCents:config?.defaultInstallationCostCents,
+    engineeringCostCents:config?.defaultEngineeringCostCents,
+    storageCost:!isServicesQuote(data)&&data.systemType==='hybrid'?(Number(data.batteryCost)||0):0,
+    additionalServices:selectedAdditionalServices(data),
+    markupRate:config?.defaultMarkupRate,
+    targetMarginRate:config?.defaultTargetMarginRate,
+    commissionRate:config?.defaultCommissionRate,
+    commissionBase:config?.defaultCommissionBase,
+    taxRate:config?.defaultTaxRate,
+    taxBase:config?.defaultTaxBase,
+    freightRequired:config?.defaultFreightRequired===true
+  });
+}
+
+function pricingFor(data){
+  return data.pricingMode==='STANDARD'?standardPricingFor(data):legacyPricingFor(data);
+}
+
+function pricingAmount(cents){
+  return typeof cents==='number'?cents/100:0;
+}
+
 function investmentBreakdown(){
   const data=values();
   const servicesQuote=isServicesQuote(data);
+  const pricing=pricingFor(data);
+  if(pricing)return {
+    kitCost:pricingAmount(pricing.costs.equipment),
+    storageCost:pricingAmount(pricing.costs.storage),
+    serviceCost:pricingAmount(pricing.costs.additionalServices),
+    marginCost:pricingAmount(pricing.commercial.markupAmount),
+    installationCost:pricingAmount(pricing.costs.installation),
+    engineeringCost:pricingAmount(pricing.costs.engineering),
+    taxCost:pricingAmount(pricing.commercial.taxAmount),
+    total:pricingAmount(pricing.price.customerPrice)
+  };
   const kitCost=servicesQuote?0:Number(data.kitCost)||0;
   const storageCost=!servicesQuote&&data.systemType==='hybrid'?(Number(data.batteryCost)||0):0;
   const serviceCost=additionalServicesTotal(data);
@@ -223,7 +279,7 @@ function calculate(){
   const {consumption,average,targetMonthly,modules,installedKwp,generation,annualGeneration}=dimensioning;
   const tariff=servicesQuote?0:Number(d.tariff);
   const annualSavings=Math.min(annualGeneration,targetMonthly*12)*tariff;
-  const kitCost=servicesQuote?0:Number(d.kitCost);
+  const kitCost=servicesQuote?0:Number(d.pricingMode==='STANDARD'?d.equipmentCost:d.kitCost);
   const hybrid=!servicesQuote&&d.systemType==='hybrid';
   const storageCost=hybrid?Number(d.batteryCost):0;
   const storageCapacity=hybrid?Number(d.batteryCapacity)*Number(d.batteryQuantity):0;
@@ -235,7 +291,8 @@ function calculate(){
   const taxCost=kitCost*percentageRate(d,'taxRate');
   const additionalServices=selectedAdditionalServices(d);
   const serviceCost=additionalServices.reduce((sum,service)=>sum+service.total,0);
-  const investment=kitCost+marginCost+installationCost+engineeringCost+taxCost+storageCost+serviceCost;
+  const pricing=pricingFor(d);
+  const investment=pricing?pricingAmount(pricing.price.customerPrice):kitCost+marginCost+installationCost+engineeringCost+taxCost+storageCost+serviceCost;
   const payback=investment/annualSavings;
   return {...d,quoteType:servicesQuote?'services':'system',servicesQuote,hybrid,hspSource:hspSourceLabel,solarProfile:[...activeMonthlyHsp],storageCost,serviceCost,additionalServices,storageCapacity,usableCapacity,autonomy,consumption,average,targetMonthly,modules:servicesQuote?0:modules,installedKwp:servicesQuote?0:installedKwp,generation:servicesQuote?generation.map(()=>0):generation,annualGeneration:servicesQuote?0:annualGeneration,annualSavings,investment,payback,area:servicesQuote?0:modules*defaultModuleArea};
 }
@@ -359,11 +416,27 @@ function syncQuoteType(){
   const totalHelp=document.querySelector('#totalInvestmentPreview')?.nextElementSibling;
   if(totalHelp)totalHelp.textContent=services?'Total dos servi\u00e7os selecionados.':'Kit + percentuais sobre o kit + armazenamento, quando houver.';
   syncSystem();
+  syncPricingMode();
   updateInvestmentPreview();
   updateDimensioningPreview();
 }
+
+function syncPricingMode(){
+  const standard=field('pricingMode')?.value==='STANDARD';
+  const equipment=field('equipmentCost'),equipmentWrapper=document.querySelector('#standardEquipmentCostField');
+  if(equipmentWrapper)equipmentWrapper.hidden=!standard;
+  if(equipment){equipment.disabled=!standard;equipment.required=standard;}
+  for(const name of ['kitCost','margin','installationRate','engineeringRate','taxRate']){
+    const control=field(name);if(!control)continue;
+    control.disabled=standard;control.required=!standard;
+    const wrapper=control.closest('.rate-line')||control.closest('label');if(wrapper)wrapper.hidden=standard;
+  }
+  const help=document.querySelector('#totalInvestmentPreview')?.nextElementSibling;
+  if(help)help.textContent=standard?'Equipment cost + configuração comercial ativa + armazenamento, quando houver.':'Kit + percentuais sobre o kit + armazenamento, quando houver.';
+}
 field('systemType').addEventListener('change',syncSystem);
 field('quoteType').addEventListener('change',syncQuoteType);
+field('pricingMode').addEventListener('change',()=>{syncPricingMode();updateInvestmentPreview();});
 setupLocalities();
 syncQuoteType();
 for(const name of ['tariff','hsp','performance','kitCost','margin','installationRate','engineeringRate','taxRate','energyInflation']){
@@ -377,6 +450,11 @@ field('hsp').addEventListener('input',()=>{hspSourceLabel='Valor editado manualm
 form.addEventListener('submit',event=>event.preventDefault());
 form.addEventListener('input',()=>{updateInvestmentPreview();updateDimensioningPreview();});
 form.addEventListener('change',()=>{updateInvestmentPreview();updateDimensioningPreview();});
+window.addEventListener('authchanged',async event=>{
+  if(!solarApi||!event.detail)return;
+  try{activeCommercialConfig=await solarApi('commercial-config/active');}catch(error){activeCommercialConfig=null;}
+  syncPricingMode();updateInvestmentPreview();
+});
 
 function validateStep(step){
   const controls=document.querySelectorAll(`[data-step="${step}"] input,[data-step="${step}"] select`);
@@ -390,6 +468,11 @@ function validateStep(step){
     input.reportValidity();
     input.setCustomValidity('');
     return false;
+  }
+  if(step===3&&field('pricingMode')?.value==='STANDARD'){
+    const control=field('pricingMode'),pricing=pricingFor(values());
+    const warnings=pricing?.warnings||['COMMERCIAL_CONFIG_REQUIRED'];
+    if(!pricing?.pricingComplete){control.setCustomValidity('Precificação STANDARD exige revisão: '+warnings.join(', '));control.reportValidity();control.setCustomValidity('');return false;}
   }
   return true;
 }
