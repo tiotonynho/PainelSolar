@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="theme-portico.css" />
   <link rel="stylesheet" href="contracts.css" />
   <link rel="stylesheet" href="auth.css" />
+  <link rel="stylesheet" href="diagnostics.css" />
 </head>
 <body class="auth-locked">
   <aside class="sidebar">
@@ -20,6 +21,7 @@
     <nav>
       <button class="nav-item active" data-view="dashboard"><span>⌂</span> Visão geral</button>
       <button class="nav-item" data-view="quote"><span>＋</span> Novo orçamento</button>
+      <button class="nav-item" data-view="diagnostics"><span>◎</span> Diagnósticos</button>
       <button class="nav-item" data-view="clients"><span>♙</span> Clientes</button>
       <button class="nav-item" data-view="settings"><span>⚙</span> Configurações</button>
     </nav>
@@ -201,6 +203,19 @@
       </article>
     </section>
 
+    <section id="diagnostics" class="view">
+      <div class="diagnostic-admin-heading"><div><span class="section-kicker">CAMPANHA PÓRTICO</span><h2>Diagnósticos energéticos</h2><p>Receba, confira e transforme solicitações em estudos preliminares revisáveis.</p></div><button class="ghost" id="diagnosticRefresh" type="button">Atualizar lista</button></div>
+      <div class="diagnostic-layout">
+        <div class="panel diagnostic-list-panel">
+          <form id="diagnosticFilters" class="diagnostic-filters"><label>Buscar<input name="q" type="search" placeholder="Nome, protocolo ou WhatsApp"></label><label>Situação<select name="status"><option value="">Todas</option><option value="RECEIVED">Recebido</option><option value="DATA_PENDING">Dados pendentes</option><option value="STUDY_GENERATED">Estudo gerado</option><option value="IN_REVIEW">Em revisão</option><option value="PROPOSAL_GENERATED">Proposta gerada</option><option value="CLOSED">Encerrado</option></select></label><label>Perfil<select name="profile"><option value="">Todos</option><option value="RESIDENTIAL">Residencial</option><option value="COMMERCIAL">Comercial</option></select></label><button class="primary" type="submit">Filtrar</button></form>
+          <p class="diagnostic-message" id="diagnosticListMessage" role="status"></p>
+          <div class="table-wrap"><table class="diagnostic-table"><thead><tr><th>Protocolo</th><th>Solicitante</th><th>Local</th><th>Recebido</th><th>Situação</th></tr></thead><tbody id="diagnosticRows"></tbody></table></div>
+          <div class="diagnostic-pagination"><button class="ghost" id="diagnosticPrev" type="button">Anterior</button><span id="diagnosticPage">Página 1</span><button class="ghost" id="diagnosticNext" type="button">Próxima</button></div>
+        </div>
+        <div class="panel diagnostic-detail-panel" id="diagnosticDetailPanel"><div class="empty-state compact"><span>◎</span><h3>Selecione um diagnóstico</h3><p>Os dados e pendências da solicitação aparecerão aqui para revisão.</p></div></div>
+      </div>
+    </section>
+
     <section id="clients" class="view empty-state"><span>♙</span><h2>Clientes</h2><p>Os clientes cadastrados aparecerão aqui nas próximas versões.</p><button class="primary openQuote">Cadastrar primeiro cliente</button></section>
     <section id="settings" class="view">
       <div class="panel commercial-config-panel">
@@ -236,5 +251,6 @@
   <script src="auth-ui.js"></script>
   <script src="commercial-config-ui.js"></script>
   <script src="supplier-import-ui.js"></script>
+  <script src="diagnostic-admin.js"></script>
 </body>
 </html>

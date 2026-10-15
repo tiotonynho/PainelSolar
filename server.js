@@ -11,6 +11,7 @@ const {createCommercialConfigService}=require('./commercial-config-service');
 const {createSupplierImportService}=require('./supplier-import-service');
 const {priceProposal}=require('./proposal-pricing-service');
 const {normalizeProcurementResult,PRICING_SOURCES,SELECTION_MODES}=require('./procurement-pricing-bridge');
+const {createDiagnosticService}=require('./diagnostic-service');
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 const textValue=value=>typeof value==='string'&&value.trim();
 function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.env.PUBLIC_URL,fetchImpl=fetch}={}){
@@ -74,8 +75,8 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
     for(const id of ids)remove.run(id);
     return ids.length;
   }
-  async function body(req){
-    let text='';for await(const chunk of req){text+=chunk;if(Buffer.byteLength(text)>500000)throw fail('Conteúdo muito grande.',413);}
+  async function body(req,maxBytes=500000){
+    let text='';for await(const chunk of req){text+=chunk;if(Buffer.byteLength(text)>maxBytes)throw fail('Conteúdo muito grande.',413);}
     try{return JSON.parse(text||'{}');}catch{throw fail('JSON inválido.');}
   }
   const auth=createAuth(db,{publicUrl,body});
@@ -91,6 +92,14 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
     warn:event=>console.warn('[supplier-import]',event.event,event.batchId||'',event.error||'')
   };
   const supplierImportService=createSupplierImportService(db,{logger:supplierImportLogger});
+  const diagnosticService=createDiagnosticService(db,{dataDir,solarHsp,kitService,catalogService,commercialConfigService});
+  const publicDiagnosticAttempts=new Map();
+  const throttlePublicDiagnostic=req=>{
+    const key=req.socket.remoteAddress||'unknown',now=Date.now(),current=publicDiagnosticAttempts.get(key);
+    if(!current||current.until<=now){publicDiagnosticAttempts.set(key,{count:1,until:now+600000});return;}
+    if(current.count>=10)throw fail('Muitas solicitações. Aguarde alguns minutos e tente novamente.',429);
+    current.count++;
+  };
   const configForProposal=proposal=>{
     if(String(proposal?.pricingMode||'LEGACY').toUpperCase()!=='STANDARD')return null;
     return proposal?.commercialConfigVersion
@@ -122,6 +131,15 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
         if(req.headers.origin!==expected)throw fail('Origem não autorizada.',403);
       }
       if(await auth.handle(req,res,route,reply))return;
+      if(route==='/api/public/diagnostics/config'&&req.method==='GET'){
+        return reply(200,diagnosticService.publicCampaignConfig());
+      }
+      if(route==='/api/public/diagnostics'&&req.method==='POST'){
+        throttlePublicDiagnostic(req);
+        const data=await body(req,6*1024*1024);
+        const result=diagnosticService.create(data,{ip:req.socket.remoteAddress,attachment:data.attachment});
+        return reply(result.duplicate?200:201,{protocol:result.record.protocol,status:result.record.status,receivedAt:result.record.receivedAt,duplicate:result.duplicate});
+      }
       if(route.startsWith('/api/public/')){
         const [,token,action]=route.match(/^\/api\/public\/([A-Za-z0-9_-]{43})(?:\/(accept|sign))?$/)||[];
         if(!token)throw fail('Link inválido.',404);
@@ -166,6 +184,59 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
       if(route.startsWith('/api/')){
         const user=auth.requireUser(req);
         const requireAdmin=()=>{if(user.role!=='admin')throw fail('Acesso exclusivo do administrador.',403);};
+        if(route==='/api/admin/diagnostics/config'&&req.method==='GET'){
+          requireAdmin();return reply(200,diagnosticService.adminCampaignConfig());
+        }
+        if(route==='/api/admin/diagnostics/config'&&req.method==='PUT'){
+          requireAdmin();return reply(200,diagnosticService.saveConfig(await body(req),user.id));
+        }
+        if(route==='/api/admin/diagnostics'&&req.method==='GET'){
+          return reply(200,diagnosticService.list({page:url.searchParams.get('page'),pageSize:url.searchParams.get('pageSize'),status:url.searchParams.get('status'),profile:url.searchParams.get('profile'),city:url.searchParams.get('city'),from:url.searchParams.get('from'),to:url.searchParams.get('to'),q:url.searchParams.get('q')}));
+        }
+        const diagnosticAttachmentMatch=route.match(/^\/api\/admin\/diagnostics\/([A-Za-z0-9_-]+)\/attachment$/);
+        if(diagnosticAttachmentMatch&&req.method==='GET'){
+          const file=diagnosticService.attachment(diagnosticAttachmentMatch[1]);
+          res.setHeader('Content-Type',file.mimeType);res.setHeader('Content-Disposition',`attachment; filename="${file.filename}"`);res.setHeader('X-Content-Type-Options','nosniff');
+          return res.end(fs.readFileSync(file.path));
+        }
+        const diagnosticStudyMatch=route.match(/^\/api\/admin\/diagnostics\/([A-Za-z0-9_-]+)\/study$/);
+        if(diagnosticStudyMatch&&req.method==='POST'){
+          const data=await body(req);return reply(200,await diagnosticService.buildStudy(diagnosticStudyMatch[1],{actorId:user.id,corrections:data.corrections||data}));
+        }
+        const diagnosticConvertMatch=route.match(/^\/api\/admin\/diagnostics\/([A-Za-z0-9_-]+)\/convert$/);
+        if(diagnosticConvertMatch&&req.method==='POST'){
+          const diagnosticId=diagnosticConvertMatch[1],existing=diagnosticService.get(diagnosticId,{detail:true});
+          if(!existing)throw fail('Diagnóstico não encontrado.',404);
+          if(existing.proposalId)return reply(200,{diagnostic:existing,duplicate:true});
+          const data=await body(req),rawProposal=data.proposal;
+          if(!rawProposal||typeof rawProposal!=='object'||Array.isArray(rawProposal))throw fail('Informe os dados da proposta para conversão.');
+          const source=String(data.pricingSource??rawProposal.pricingSource??(String(rawProposal.pricingMode||'LEGACY').toUpperCase()==='STANDARD'?PRICING_SOURCES.MANUAL:PRICING_SOURCES.LEGACY)).toUpperCase();
+          const selectionMode=String(data.selectionMode??rawProposal.selectionMode??SELECTION_MODES.AUTO).toUpperCase();
+          if(source===PRICING_SOURCES.PROCUREMENT&&selectionMode===SELECTION_MODES.MANUAL&&user.role!=='admin')throw fail('Somente administradores podem sobrescrever a seleção de aquisição.',403);
+          const procurementResult=data.procurementResult||rawProposal.procurementResult;
+          const prepared=prepareProposal({proposal:rawProposal,procurementResult,pricingSource:source,selectionMode,selectedOfferId:data.selectedOfferId??rawProposal.selectedOfferId,overrideReason:data.overrideReason??rawProposal.overrideReason,freightRequired:data.freightRequired,requireComplete:true});
+          const pricedProposal=prepared.proposal;
+          Core.accept(pricedProposal,{name:'Validação',document:'Validação',date:new Date().toISOString(),channel:'Validação',evidence:'Validação',confirmed:true},'validation');
+          const token=crypto.randomBytes(32).toString('base64url'),proposalId='PT-'+new Date().getFullYear()+'-'+crypto.randomBytes(5).toString('hex').toUpperCase();
+          const procurementReview=procurementResult?{...normalizeProcurementResult(procurementResult),refreshedAt:new Date().toISOString(),actorId:user.id}:null;
+          const audit=pricedProposal.pricingSource===PRICING_SOURCES.PROCUREMENT?[{event:'procurement.selected',date:new Date().toISOString(),actorId:user.id,pricingSource:pricedProposal.pricingSource,selectionMode:pricedProposal.selectionMode||null,procurementSnapshot:pricedProposal.pricingSnapshot?.procurementSnapshot||null}]:[];
+          const record={id:proposalId,proposal:pricedProposal,procurementReview,status:'pending',isTest:false,acceptance:null,contract:null,pricingHistory:[],audit,expiresAt:Date.now()+3*86400000,publicPath:'/cliente.html#'+token};
+          db.exec('BEGIN IMMEDIATE');
+          try{
+            const locked=diagnosticService.get(diagnosticId,{detail:true});
+            if(locked.proposalId){db.exec('ROLLBACK');return reply(200,{diagnostic:locked,duplicate:true});}
+            db.prepare('INSERT INTO records(id,token,body,owner_id) VALUES (?,?,?,?)').run(proposalId,hash(token),JSON.stringify(record),user.id);
+            const linked=diagnosticService.markProposal(diagnosticId,proposalId,user.id);db.exec('COMMIT');
+            return reply(201,{diagnostic:linked,record});
+          }catch(error){try{db.exec('ROLLBACK');}catch{}throw error;}
+        }
+        const diagnosticMatch=route.match(/^\/api\/admin\/diagnostics\/([A-Za-z0-9_-]+)$/);
+        if(diagnosticMatch&&req.method==='GET'){
+          const value=diagnosticService.get(diagnosticMatch[1],{detail:true});if(!value)throw fail('Diagnóstico não encontrado.',404);return reply(200,value);
+        }
+        if(diagnosticMatch&&req.method==='PATCH'){
+          const data=await body(req);if(data.assignedTo!==undefined&&user.role!=='admin')throw fail('Atribuição exige administrador.',403);return reply(200,diagnosticService.update(diagnosticMatch[1],data,user.id));
+        }
         if(route==='/api/admin/suppliers'&&req.method==='GET'){
           requireAdmin();return reply(200,catalogService.listSuppliers());
         }
@@ -332,9 +403,9 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
         }
         throw fail('Rota não encontrada.',404);
       }
-      const files=['index.html','app.js','styles.css','theme-portico.css','contracts.css','contracts.js','contract-template.js','contract-core.js','api-client.js','auth-ui.js','auth.css','commercial-config-ui.js','supplier-import-ui.js','cliente.html','cliente.js','localities.js','solar-sizing-engine.js','money.js','pricing-config.js','pricing-engine.js'];
+      const files=['index.html','app.js','styles.css','theme-portico.css','contracts.css','contracts.js','contract-template.js','contract-core.js','api-client.js','auth-ui.js','auth.css','diagnostics.css','commercial-config-ui.js','supplier-import-ui.js','diagnostic-admin.js','cliente.html','cliente.js','localities.js','solar-sizing-engine.js','money.js','pricing-config.js','pricing-engine.js','portico-diagnostico.html','portico-diagnostico.css','portico-diagnostico.js'];
       const assets=['assets/portico-logo-horizontal-color.png','assets/portico-logo-horizontal-white.png','assets/portico-logo-horizontal-white-transparent.png','assets/portico-logo-vertical-color.png','assets/portico-logo-vertical-white.png','assets/portico-logo-vertical-white-transparent.png'];
-      const file=route==='/'?'index.html':route.slice(1);
+      const file=route==='/'?'index.html':route==='/portico/diagnostico'?'portico-diagnostico.html':route.slice(1);
       if(req.method!=='GET'||(!files.includes(file)&&!assets.includes(file)))throw fail('Não encontrado.',404);
       res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript; charset=utf-8':file.endsWith('.css')?'text/css; charset=utf-8':file.endsWith('.png')?'image/png':'text/html; charset=utf-8');
       res.end(fs.readFileSync(path.join(__dirname,file)));

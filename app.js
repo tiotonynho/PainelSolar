@@ -87,7 +87,7 @@ function showView(id){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active-view'));
   document.querySelector(`#${id}`).classList.add('active-view');
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===id));
-  const titles={dashboard:'Visão geral',quote:'Novo orçamento',clients:'Clientes',settings:'Configurações',proposal:'Proposta gerada',contracts:'Contratos',contract:'Contrato'};
+  const titles={dashboard:'Visão geral',quote:'Novo orçamento',diagnostics:'Diagnósticos energéticos',clients:'Clientes',settings:'Configurações',proposal:'Proposta gerada',contracts:'Contratos',contract:'Contrato'};
   document.querySelector('#pageTitle').textContent=({team:'Equipe',account:'Minha conta'})[id]||titles[id]||'Pórtico Solar Energy';
   window.scrollTo({top:0,behavior:'smooth'});
 }

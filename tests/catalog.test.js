@@ -24,14 +24,14 @@ test('migration de catálogo preserva o banco legado e é idempotente',()=>{
 
   let db=openDatabase(dir);
   assert.equal(db.prepare('SELECT count(*) AS n FROM records').get().n,1);
-  assert.equal(db.prepare('SELECT count(*) AS n FROM schema_migrations').get().n,4);
-  for(const table of ['suppliers','products','supplier_products','supplier_offers','price_history','kits','kit_items','supplier_kits','supplier_kit_offers','commercial_configs','commercial_config_audit','supplier_import_batches','supplier_import_items','supplier_import_audit']){
+  assert.equal(db.prepare('SELECT count(*) AS n FROM schema_migrations').get().n,5);
+  for(const table of ['suppliers','products','supplier_products','supplier_offers','price_history','kits','kit_items','supplier_kits','supplier_kit_offers','commercial_configs','commercial_config_audit','supplier_import_batches','supplier_import_items','supplier_import_audit','campaign_diagnostic_config','campaign_diagnostics','campaign_diagnostic_attachments','campaign_diagnostic_history']){
     assert.equal(db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name=?").get(table).n,1);
   }
   db.close();
 
   db=openDatabase(dir);
-  assert.equal(db.prepare('SELECT count(*) AS n FROM schema_migrations').get().n,4);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM schema_migrations').get().n,5);
   assert.equal(db.prepare('SELECT count(*) AS n FROM records').get().n,1);
   db.close();
 });
