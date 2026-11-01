@@ -16,6 +16,17 @@ node server.js
 
 Depois acesse `http://127.0.0.1:8080`. No primeiro acesso, crie a conta administradora com nome, e-mail e senha de pelo menos 10 caracteres. Não há dependências npm para instalar.
 
+### Rotas públicas
+
+- `/` — portal Painel Solar, com a escolha entre Pórtico Solar e GoTex
+- `/portico-solar` — página da Pórtico Solar e formulário de orçamento
+- `/gotex` — página da GoTex e formulário de atendimento técnico
+- `/gotex/diagnostico` — diagnóstico técnico público da GoTex
+- `/portico/diagnostico` — diagnóstico energético público
+- `/cliente.html#TOKEN` — proposta e contrato compartilhados com o cliente
+- `/privacidade` — política de privacidade do portal
+- `/app` — área interna comercial
+
 O schema inicial do Supplier Hub é aplicado automaticamente pelo servidor por meio das migrations em `migrations/`. Para criar os fornecedores, equipamentos e kits fictícios de desenvolvimento, execute `node catalog-seed.js`. O seed não cria preços ou ofertas comerciais.
 
 ## Contas e equipe

@@ -20,6 +20,14 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
   db.exec('CREATE TABLE IF NOT EXISTS solar_hsp_cache (key TEXT PRIMARY KEY, body TEXT NOT NULL, updated_at INTEGER NOT NULL)');
   if(!db.prepare('PRAGMA table_info(records)').all().some(column=>column.name==='owner_id'))db.exec('ALTER TABLE records ADD COLUMN owner_id TEXT');
   db.exec('CREATE INDEX IF NOT EXISTS records_owner ON records(owner_id)');
+  db.exec('CREATE TABLE IF NOT EXISTS leads (id TEXT PRIMARY KEY,name TEXT NOT NULL,email TEXT NOT NULL,phone TEXT,city TEXT NOT NULL,state TEXT,company TEXT NOT NULL DEFAULT \'portico\',service TEXT,notes TEXT,source TEXT,protocol TEXT,created_at INTEGER NOT NULL,ip TEXT)');
+  const leadColumns=db.prepare('PRAGMA table_info(leads)').all().map(column=>column.name);
+  if(!leadColumns.includes('company'))db.exec("ALTER TABLE leads ADD COLUMN company TEXT NOT NULL DEFAULT 'portico'");
+  if(!leadColumns.includes('state'))db.exec('ALTER TABLE leads ADD COLUMN state TEXT');
+  if(!leadColumns.includes('service'))db.exec('ALTER TABLE leads ADD COLUMN service TEXT');
+  if(!leadColumns.includes('notes'))db.exec('ALTER TABLE leads ADD COLUMN notes TEXT');
+  if(!leadColumns.includes('source'))db.exec('ALTER TABLE leads ADD COLUMN source TEXT');
+  if(!leadColumns.includes('protocol'))db.exec('ALTER TABLE leads ADD COLUMN protocol TEXT');
   const read=id=>{const row=db.prepare('SELECT body FROM records WHERE id=?').get(id);return row?JSON.parse(row.body):null;};
   const save=r=>db.prepare('UPDATE records SET body=? WHERE id=?').run(JSON.stringify(r),r.id);
   const fail=(message,status=400)=>Object.assign(new Error(message),{status});
@@ -131,6 +139,16 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
         if(req.headers.origin!==expected)throw fail('Origem não autorizada.',403);
       }
       if(await auth.handle(req,res,route,reply))return;
+      if(route==='/api/leads'&&req.method==='POST'){
+        const data=await body(req,20000),name=String(data.name||'').trim(),email=String(data.email||'').trim().toLowerCase(),phone=String(data.phone||'').trim(),city=String(data.city||'').trim(),state=String(data.state||'').trim().toUpperCase(),company=String(data.company||'').trim().toLowerCase(),service=String(data.service||'').trim().slice(0,120),notes=String(data.notes||'').trim().slice(0,2000),source=String(data.source||'').trim().slice(0,120),privacyAccepted=data.privacyAccepted===true;
+        if(!['portico','gotex'].includes(company))throw fail('Selecione uma empresa válida para o atendimento.');
+        if(data.privacyAccepted!==undefined&&privacyAccepted!==true)throw fail('Confirme a finalidade do uso dos dados.');
+        if(state&&state!=='OUTRO'&&(!/^[A-Z]{2}$/.test(state)))throw fail('Informe uma UF válida.');
+        if(name.length<2||name.length>120||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254||!city||city.length>120)throw fail('Informe nome, e-mail e cidade válidos.');
+        const id=crypto.randomUUID(),protocol=(company==='gotex'?'GT':'PS')+'-'+new Date().getFullYear()+'-'+crypto.randomBytes(3).toString('hex').toUpperCase();
+        db.prepare('INSERT INTO leads(id,name,email,phone,city,state,company,service,notes,source,protocol,created_at,ip) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id,name,email,phone,city,state||null,company,service||null,notes||null,source,protocol,Date.now(),req.socket.remoteAddress||'');
+        return reply(201,{ok:true,protocol});
+      }
       if(route==='/api/public/diagnostics/config'&&req.method==='GET'){
         return reply(200,diagnosticService.publicCampaignConfig());
       }
@@ -403,9 +421,9 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
         }
         throw fail('Rota não encontrada.',404);
       }
-      const files=['index.html','app.js','styles.css','theme-portico.css','contracts.css','contracts.js','contract-template.js','contract-core.js','api-client.js','auth-ui.js','auth.css','diagnostics.css','commercial-config-ui.js','supplier-import-ui.js','diagnostic-admin.js','cliente.html','cliente.js','localities.js','solar-sizing-engine.js','money.js','pricing-config.js','pricing-engine.js','portico-diagnostico.html','portico-diagnostico.css','portico-diagnostico.js'];
+      const files=['index.html','app.js','styles.css','theme-portico.css','contracts.css','contracts.js','contract-template.js','contract-core.js','api-client.js','auth-ui.js','auth.css','diagnostics.css','commercial-config-ui.js','supplier-import-ui.js','diagnostic-admin.js','cliente.html','cliente.js','localities.js','solar-sizing-engine.js','money.js','pricing-config.js','pricing-engine.js','portico-diagnostico.html','portico-diagnostico.css','portico-diagnostico.js','landing.html','landing.css','landing.js','portico-solar.html','gotex.html','brand.css','brand.js','privacidade.html','gotex-diagnostico.html','gotex-diagnostico.css','gotex-diagnostico.js'];
       const assets=['assets/portico-logo-horizontal-color.png','assets/portico-logo-horizontal-white.png','assets/portico-logo-horizontal-white-transparent.png','assets/portico-logo-vertical-color.png','assets/portico-logo-vertical-white.png','assets/portico-logo-vertical-white-transparent.png'];
-      const file=route==='/'?'index.html':route==='/portico/diagnostico'?'portico-diagnostico.html':route.slice(1);
+      const file=route==='/'?'landing.html':route==='/app'?'index.html':route==='/portico/diagnostico'?'portico-diagnostico.html':route==='/gotex/diagnostico'?'gotex-diagnostico.html':route==='/portico-solar'?'portico-solar.html':route==='/gotex'?'gotex.html':route==='/privacidade'?'privacidade.html':route.slice(1);
       if(req.method!=='GET'||(!files.includes(file)&&!assets.includes(file)))throw fail('Não encontrado.',404);
       res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript; charset=utf-8':file.endsWith('.css')?'text/css; charset=utf-8':file.endsWith('.png')?'image/png':'text/html; charset=utf-8');
       res.end(fs.readFileSync(path.join(__dirname,file)));
