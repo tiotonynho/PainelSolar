@@ -11,20 +11,52 @@
 .ghost.danger:hover{background:#fdecea}
 .contract-links{margin-bottom:18px}#serverLogin{max-width:480px;margin:20px 0}#serverLogin button{margin-top:12px}
 .public-contract{white-space:pre-wrap;line-height:1.8;border-top:2px solid #ec6c19;padding-top:24px;margin-top:28px}
-@page contractSheet{size:A4;margin:18mm;@bottom-right{content:counter(page);font-size:9pt;color:#646363}}
+/* Each printed sheet owns its header, content area and footer. */
+@page contractSheet{
+  size:A4;margin:0;
+  @top-left{content:""}
+  @top-center{content:""}
+  @top-right{content:""}
+  @bottom-left{content:""}
+  @bottom-center{content:""}
+  @bottom-right{content:""}
+}
 .contract-controls .panel{margin-bottom:28px}.contract-controls form>.primary{margin-top:22px}
 #contractReview{margin-top:28px;padding-top:22px;border-top:1px solid var(--line)}
 .contract-review-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 textarea{width:100%;display:block;margin-top:10px;padding:16px;font:14px/1.7 Nunito,Arial,sans-serif;border:1px solid var(--line);border-radius:10px;resize:vertical}
 button:disabled{opacity:.5;cursor:not-allowed}
 #contractMessage,#acceptanceMessage,#contractStorageMessage{font-size:13px;color:#a63e12}
-.contract-document{max-width:900px;margin:auto;padding:55px;background:white;box-shadow:var(--shadow);font-size:14px;line-height:1.75;overflow-wrap:anywhere}
+.contract-document{max-width:900px;margin:auto;padding:40px 55px;background:white;box-shadow:var(--shadow);font:12pt/1.22 Calibri,Carlito,Arial,sans-serif;overflow-wrap:anywhere;color:#111}
+.contract-document,.contract-document *,.contract-print-pages,.contract-print-pages *{font-family:Calibri,Carlito,Arial,sans-serif!important}
+.contract-print-pages{position:absolute;left:-10000px;top:0;visibility:hidden;width:210mm;font:12pt/1.22 Calibri,Carlito,Arial,sans-serif;color:#111}
+.contract-print-sheet{position:relative;box-sizing:border-box;width:210mm;height:297mm;padding:35mm 20mm 25mm 30mm;background:#fff;break-after:page;page-break-after:always;overflow:hidden}
+.contract-print-sheet:last-child{break-after:auto;page-break-after:auto}
+.contract-page-body{display:flow-root;height:237mm;overflow-wrap:anywhere}
+.contract-page-body h1,.contract-document h1{font:700 12pt/1.22 Calibri,Carlito,Arial,sans-serif;text-align:center;margin:0 0 5mm}
+.contract-page-body h2{font:700 12pt/1.22 Calibri,Carlito,Arial,sans-serif;margin:0 0 4mm}
+.contract-page-body p,.contract-document p{white-space:pre-line;text-align:justify;margin:0 0 4mm}
+.contract-clause-heading{display:block}
+.contract-annex-title{font-weight:700}
+.contract-page-body .contract-signature-block,.contract-document .contract-signature-block{text-align:left}
+.contract-page-header,.contract-page-footer,.contract-print-header,.contract-print-footer{box-sizing:border-box;color:#111;margin:0;border:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.contract-page-header,.contract-print-header{display:flex;align-items:center;justify-content:space-between;gap:8mm;border-bottom:.6mm solid #ff6515;padding-bottom:2mm;line-height:1.05}
+.contract-page-company{flex:1;min-width:0;font-size:11pt;overflow-wrap:anywhere}
+.contract-page-meta{width:90mm;flex-shrink:0;border-top:.6mm solid #ff6515;color:#555;font-size:7pt;font-weight:700;text-align:center}
+.contract-page-meta-title{border-bottom:.6mm solid #ff6515;padding:1mm 0}
+.contract-page-meta-row{display:flex;border-bottom:.6mm solid #ff6515}
+.contract-page-meta-row span{flex:1;min-width:0;padding:1mm;overflow-wrap:anywhere}
+.contract-page-meta-row span+span{border-left:.6mm solid #ff6515}
+.contract-page-header{position:absolute;left:30mm;right:20mm;top:14mm;height:17mm}
+.contract-page-footer,.contract-print-footer{display:block;border-top:.6mm solid #ff6515;padding-top:1.5mm;font:700 7pt/1.2 Calibri,Carlito,Arial,sans-serif;color:#666;text-align:center}
+.contract-page-footer{position:absolute;left:30mm;right:20mm;bottom:14mm;height:8mm}
+.contract-print-header{margin-bottom:5mm}
+.contract-print-footer{position:static;margin-top:8mm}
 .contract-letterhead{display:flex;justify-content:space-between;gap:18px;padding-bottom:18px;border-bottom:3px solid #ec6c19}
 .contract-letterhead small{color:var(--muted)}
-.contract-document h1{font-size:20px;text-align:center;margin:28px 0}
-.contract-document p{white-space:pre-line;margin:0 0 18px}
 .contract-annex{margin-top:40px;padding-top:20px;border-top:2px solid #ec6c19}
 @media(max-width:600px){.contract-row{flex-wrap:wrap;gap:12px}.record-actions{width:100%;justify-content:flex-start}.contract-document{padding:24px 18px}.contract-letterhead{flex-direction:column}}
+@media screen and (max-width:600px){.contract-print-header{flex-direction:column;align-items:stretch;gap:4mm}.contract-print-header .contract-page-meta{width:auto}}
 @media print{
   body[data-print="contract"],body.customer-page{width:auto;page:contractSheet}
   .customer-page main{max-width:none!important;padding:0!important}
@@ -34,7 +66,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
   .acceptance-panel,.contract-controls{display:none!important}
   body[data-print="contract"] .view#proposal{display:none!important}
   body[data-print="contract"] .view#contract{display:block!important;padding:0;max-width:none}
-  body[data-print="contract"] .contract-document{display:block!important;box-shadow:none;max-width:none;padding:0;font-size:10pt;line-height:1.55}
+  body[data-print="contract"]{width:auto!important}
+  body[data-print="contract"]:has(>.contract-print-pages)>:not(.contract-print-pages){display:none!important}
+  body[data-print="contract"]>.contract-print-pages{position:static;visibility:visible;width:210mm;margin:0;padding:0;page:contractSheet}
   .contract-document h1,.contract-document h2,.contract-letterhead{break-after:avoid}
   .contract-document p{orphans:3;widows:3}
   .contract-annex{break-before:page}

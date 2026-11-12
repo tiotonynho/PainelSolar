@@ -193,7 +193,7 @@
     }catch(error){$('#acceptanceMessage').textContent=error.message;loginShortcut.hidden=error.code!=='AUTH_REQUIRED';$('#shareProposal').disabled=false;}
   };
   const definitions=[
-    ['company','Razão social da contratada','PÓRTICO SOLAR ENERGY COMÉRCIO E REPRESENTAÇÃO LTDA'],
+    ['company','Nome da empresa (contratada)',''],
     ['companyDocument','CNPJ da contratada','18.290.532/0001-76'],
     ['companyAddress','Endereço da contratada','Rua Benjamin Constant, 2369 - Jardim São Carlos, Alfenas/MG'],
     ['representative','Representante da contratada','Antônio Carlos da Cruz Junior'],
@@ -255,12 +255,41 @@
     }catch(error){$('#contractMessage').textContent=error.message;}
   };
   function renderDocument(record){
-    renderTextDocument(record.id,'Versão '+record.contract.revision,record.contract.text,record.signature);
+    renderTextDocument(record.id,'Versão '+record.contract.revision,record.contract.text,record.signature,record.contract.details);
   }
-  function renderTextDocument(id,label,text,signature){
+  function createContractLetterhead(id,label,details={}){
+    const header=el('header','','contract-print-header');
+    header.append(el('strong',String(details.company||'').trim()||'Empresa contratada','contract-page-company'));
+    const meta=el('div','','contract-page-meta');
+    meta.append(el('div','TERMO DE CONTRATAÇÃO DE SERVIÇOS','contract-page-meta-title'));
+    const row=el('div','','contract-page-meta-row');
+    row.append(el('span',label),el('span',id));meta.append(row);header.append(meta);
+    return header;
+  }
+  function createContractFooter(details={}){
+    const footer=el('footer','','contract-print-footer');
+    if(details.companyAddress)footer.append(el('div',details.companyAddress));
+    if(details.companyDocument)footer.append(el('div','CNPJ: '+details.companyDocument));
+    return footer;
+  }
+  function formatContractParagraph(paragraph){
+    const text=paragraph.textContent;
+    const heading=text.match(/^(?:[IVXLCDM]+\s*[–—-]\s*[^:]+:|Cláusula\s+\d+[^.]*\.|Parágrafo único\.)/i);
+    if(heading){
+      const strong=el('strong',heading[0]);
+      if(/^[IVXLCDM]+\s*[–—-]/i.test(heading[0]))strong.className='contract-clause-heading';
+      paragraph.replaceChildren(strong,document.createTextNode(text.slice(heading[0].length)));
+    }else if(/^ANEXO\b/i.test(text))paragraph.classList.add('contract-annex-title');
+    if(text.includes('_____'))paragraph.classList.add('contract-signature-block');
+  }
+  function renderTextDocument(id,label,text,signature,details={}){
     const target=$('#contractDocument');target.replaceChildren();target.hidden=false;
-    const header=el('header','','contract-letterhead');header.append(el('strong','PÓRTICO / SOLAR ENERGY'),el('small',id+' · '+label));target.append(header);
-    text.split(/\n\s*\n/).forEach((part,index)=>target.append(el(index===0?'h1':'p',part)));
+    target.append(createContractLetterhead(id,label,details));
+    text.split(/\n\s*\n/).forEach((part,index)=>{
+      const block=el(index===0?'h1':'p',part);
+      if(index)formatContractParagraph(block);target.append(block);
+    });
+    target.append(createContractFooter(details));
     if(signature){
       const evidence=el('section','','contract-annex');
       evidence.append(el('h2','Registro de assinatura eletrônica simples'));
@@ -269,12 +298,92 @@
     }
   }
   $('#backContracts').onclick=()=>{refresh();showView('contracts');};
-  $('#printContract').onclick=()=>{document.body.dataset.print='contract';window.print();};
+  function paginateContractDocument(source){
+    document.querySelector('.contract-print-pages')?.remove();
+    const pages=el('div','','contract-print-pages');
+    pages.setAttribute('aria-hidden','true');document.body.append(pages);
+    const sourceHeader=source.querySelector('.contract-print-header');
+    const sourceFooter=source.querySelector('.contract-print-footer');
+    let content;
+    function newPage(){
+      const sheet=el('section','','contract-print-sheet');
+      content=el('div','','contract-page-body');
+      const header=sourceHeader?.cloneNode(true)||el('header');header.className='contract-page-header';
+      const footer=sourceFooter?.cloneNode(true)||el('footer');footer.className='contract-page-footer';
+      sheet.append(header,content,footer);
+      pages.append(sheet);
+    }
+    const fits=()=>!content.lastElementChild||content.lastElementChild.getBoundingClientRect().bottom<=content.getBoundingClientRect().bottom-1;
+    function appendBlock(block){
+      let copy=block.cloneNode(true);content.append(copy);
+      if(fits())return;
+      const blockHeight=copy.getBoundingClientRect().height;
+      copy.remove();
+      // Keep paragraphs and signature lines together when they fit on a fresh sheet.
+      if(content.childElementCount&&blockHeight<=content.getBoundingClientRect().height-1){
+        newPage();content.append(copy);return;
+      }
+      if(block.matches('h1,h2')){
+        if(content.childElementCount)newPage();
+        content.append(copy);return;
+      }
+      // Split oversized paragraphs at word boundaries, preserving every character.
+      let tokens=block.textContent.match(/\s+|\S+\s*/g)||[];
+      while(tokens.length){
+        copy=block.cloneNode(false);content.append(copy);
+        let low=0,high=tokens.length;
+        while(low<high){
+          const middle=Math.ceil((low+high)/2);
+          copy.textContent=tokens.slice(0,middle).join('');
+          formatContractParagraph(copy);
+          if(fits())low=middle;else high=middle-1;
+        }
+        if(!low){
+          copy.remove();
+          if(content.childElementCount){newPage();continue;}
+          // A single unbroken value can itself be longer than a sheet.
+          if(tokens[0].length>1){tokens=[...tokens[0],...tokens.slice(1)];continue;}
+          throw new Error('Não foi possível paginar o texto da minuta.');
+        }
+        copy.textContent=tokens.splice(0,low).join('');formatContractParagraph(copy);
+        if(tokens.length)newPage();
+      }
+    }
+    newPage();
+    for(const block of source.children){
+      if(block.matches('.contract-print-header,.contract-print-footer'))continue;
+      if(block.matches('.contract-annex')){
+        if(content.childElementCount)newPage();
+        for(const child of block.children)appendBlock(child);
+      }else{
+        // Keep a heading with enough space for the start of the next paragraph.
+        if(block.matches('h1,h2')&&content.childElementCount&&content.getBoundingClientRect().bottom-content.lastElementChild.getBoundingClientRect().bottom<100)newPage();
+        appendBlock(block);
+      }
+    }
+    return pages;
+  }
+  window.addEventListener('beforeprint',()=>{
+    if(document.body.dataset.print==='contract'&&!$('#contractDocument').hidden)paginateContractDocument($('#contractDocument'));
+  });
+  window.addEventListener('afterprint',()=>document.querySelector('.contract-print-pages')?.remove());
+  async function printContractDocument(){
+    await document.fonts.ready;
+    paginateContractDocument($('#contractDocument'));
+    const previousTitle=document.title;
+    const restore=()=>{document.title=previousTitle;window.removeEventListener('afterprint',restore);};
+    document.title='';
+    window.addEventListener('afterprint',restore,{once:true});
+    document.body.dataset.print='contract';
+    window.print();
+  }
+  $('#printContract').onclick=printContractDocument;
   $('#printDraft').onclick=()=>{
     const text=$('#contractText').value.trim();
     if(!text){$('#contractMessage').textContent='Prepare a minuta antes de imprimir.';return;}
-    renderTextDocument(current.id,'Minuta para revisão',text,null);
-    document.body.dataset.print='contract';window.print();
+    const details=Object.fromEntries(new FormData($('#contractForm')));
+    renderTextDocument(current.id,'Minuta para revisão',text,null,details);
+    printContractDocument();
   };
   refresh();
 })();
