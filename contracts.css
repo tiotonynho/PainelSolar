@@ -4,6 +4,14 @@
 .check-label input{width:18px;height:18px;margin:0;flex-shrink:0}
 .test-record-label{align-items:center;color:#6b4b12}
 .contract-row{display:flex;align-items:center;gap:20px;padding:20px 0;border-top:1px solid var(--line)}
+.client-budget-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:0 20px 12px;margin-top:18px}
+#clients>.panel-heading{flex-wrap:wrap;gap:12px;align-items:center}
+#clients>.panel-heading>div{flex:1;min-width:230px}
+.client-budget-card .contract-row>div{min-width:0;overflow-wrap:anywhere}
+.client-budget-card>.contract-row{border-top:0}
+.client-budget-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.client-budget-summary{flex:1;min-width:200px}.client-budget-summary small{display:block;margin-top:5px;color:var(--muted)}
+.budget-edit-notice{padding:14px 18px;background:#fff3e8;border-left:3px solid #ec6c19;border-radius:6px}
 .contract-row>div{flex:1}.contract-row small{display:block;margin-top:5px;color:var(--muted)}
 .contract-row{flex-wrap:wrap}.customer-link,#customerLink{display:block;overflow-wrap:anywhere;font-size:13px;margin:12px 0;color:#b5470b}
 .record-actions{display:flex;flex:0 0 auto!important;gap:8px;flex-wrap:wrap;justify-content:flex-end}

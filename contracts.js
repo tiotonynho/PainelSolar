@@ -1,6 +1,6 @@
 (()=>{
   
-  let records=[], current=null, pending=null;
+  let records=[], current=null, pending=null, editingRecord=null, displayedRecord=null, saving=null;
   const $=selector=>document.querySelector(selector);
   const el=(tag,text,className)=>{const node=document.createElement(tag);node.textContent=text;if(className)node.className=className;return node;};
   const uid=()=> 'PT-'+new Date().getFullYear()+'-'+crypto.randomUUID().slice(0,8).toUpperCase();
@@ -34,6 +34,14 @@
   }
   window.addEventListener('authchanged',refresh);
   $('#refreshContracts').onclick=refresh;
+  document.querySelector('[data-view="clients"]').addEventListener('click',refresh);
+  $('#proposalBackClients').onclick=()=>{refresh();showView('clients');};
+  const editNotice=el('p','','field-help budget-edit-notice');editNotice.id='quoteEditingNotice';editNotice.hidden=true;$('#quoteForm').before(editNotice);
+  window.addEventListener('newquotestarted',()=>{
+    editingRecord=null;displayedRecord=null;pending=null;window.editDisplayedBudget=null;
+    editNotice.hidden=true;$('#proposalBackClients').hidden=true;$('#saveBudget').hidden=false;
+    $('#testRecord').disabled=false;$('#testRecord').checked=false;
+  });
   const activeRecords=()=>records.filter(record=>record.status!=='archived');
   const recordClientKey=record=>record.proposal.document||record.proposal.clientName;
   const proposalScope=proposal=>proposal.quoteType==='services'?'Serviços':number(Number(proposal.installedKwp)||0)+' kWp';
@@ -141,8 +149,9 @@
     metrics.forEach((metric,i)=>{if(stats[i]){metric.querySelector('small').textContent=stats[i][0];metric.querySelector('strong').textContent=stats[i][1];metric.querySelector('em').textContent=stats[i][2];}});
     const clients=$('#clients');clients.classList.remove('empty-state');clients.replaceChildren();
     const heading=el('div','','panel-heading'),headingText=el('div');
-    headingText.append(el('h2','Clientes'),el('p','Clientes criados a partir das propostas compartilhadas.'));
+    headingText.append(el('h2','Clientes e orçamentos'),el('p','Consulte, edite e imprima os orçamentos salvos de cada cliente.'));
     heading.append(headingText);
+    const reloadClients=el('button','Atualizar','ghost');reloadClients.onclick=refresh;heading.append(reloadClients);
     if(window.SolarAuth?.user?.role==='admin'){
       const cleanup=el('button','Excluir registros de teste','ghost danger');
       cleanup.disabled=!records.some(record=>record.isTest);
@@ -150,8 +159,9 @@
       heading.append(cleanup);
     }
     clients.append(heading);
+    const clientMessage=el('p','','field-help');clientMessage.id='clientBudgetMessage';clientMessage.setAttribute('role','status');clients.append(clientMessage);
     const groups=new Map();
-    for(const record of visible){
+    for(const record of [...visible].reverse()){
       const key=recordClientKey(record);
       if(!groups.has(key))groups.set(key,{proposal:record.proposal,records:records.filter(item=>recordClientKey(item)===key)});
     }
@@ -162,12 +172,30 @@
       remove.disabled=!group.records.every(canDeleteRecord);
       remove.title=remove.disabled?'Cliente com proposta aceita, contrato ou assinatura não pode ser deletado.':'Deletar cliente e propostas sem aceite';
       remove.onclick=()=>deleteClient(key,client.clientName);
-      actions.append(remove);row.append(info,actions);clients.append(row);
+      actions.append(remove);row.append(info,actions);
+      const card=el('article','','client-budget-card');card.append(row);
+      const currentBudget=[...group.records].reverse().find(record=>record.status!=='archived');
+      for(const record of [...group.records].reverse()){
+        const budget=el('div','','client-budget-row'),summary=el('div','','client-budget-summary');
+        summary.append(el('strong',record.id),el('small',proposalScope(record.proposal)+' · '+money(record.proposal.investment)+' · '+(labels[record.status]||'Arquivada')+(record.id===currentBudget?.id?' · Atual':'')+(record.sourceRecordId?' · Revisão de '+record.sourceRecordId:'')));
+        const buttons=el('div','','record-actions');
+        const view=el('button','Visualizar orçamento','ghost');view.onclick=()=>viewBudget(record.id);
+        const edit=el('button',record.status==='pending'&&!record.acceptance?'Editar orçamento':'Criar nova versão','ghost');edit.onclick=()=>editBudget(record.id);
+        const print=el('button','Imprimir / PDF','ghost');print.onclick=()=>viewBudget(record.id,true);
+        buttons.append(view,edit,print);budget.append(summary,buttons);card.append(budget);
+      }
+      clients.append(card);
     }
     if(!groups.size)clients.append(el('p','Os clientes das suas propostas compartilhadas aparecerão aqui.'));
   }
   function proposalReady(proposal){
-    pending={id:uid(),proposal:ContractCore.clone(proposal)};
+    const updateExisting=editingRecord?.status==='pending'&&!editingRecord.acceptance;
+    pending={id:updateExisting?editingRecord.id:uid(),proposal:ContractCore.clone(proposal),recordId:updateExisting?editingRecord.id:null,previousRevision:editingRecord?.proposalRevision||0,sourceRecordId:editingRecord&&!updateExisting?editingRecord.id:null,saved:false};
+    displayedRecord=null;window.editDisplayedBudget=null;
+    $('#saveBudget').hidden=false;$('#saveBudget').disabled=false;
+    $('#saveBudget').textContent=updateExisting?'Salvar alterações':editingRecord?'Salvar nova versão':'Salvar orçamento';
+    $('#testRecord').disabled=!!editingRecord;if(editingRecord)$('#testRecord').checked=!!editingRecord.isTest;
+    $('#shareProposal').textContent='Gerar link do cliente';$('#editQuote').textContent='← Editar dados';
     $('#pNumber').textContent=pending.id;
     $('#proposalApprovalStatus').textContent='Aguardando aceite do cliente · '+pending.id;
     renderProcurementSummary(pending.proposal);$('#shareProposal').disabled=false;$('#customerLink').hidden=true;$('#acceptanceMessage').textContent='';loginShortcut.hidden=true;returnToProposal.hidden=false;
@@ -179,12 +207,67 @@
     if(!link){link=el('a','','customer-link');link.target='_blank';link.rel='noopener noreferrer';target.append(link);}
     link.href=record.publicPath;link.textContent=new URL(record.publicPath,location.href).href;
   }
+  async function viewBudget(id,print=false){
+    try{
+      const record=await api('records/'+id);
+      displayedRecord=record;editingRecord=null;pending=null;
+      buildProposal(record.proposal,{notify:false,issuedAt:record.updatedAt||record.createdAt||record.expiresAt-3*86400000});
+      $('#pNumber').textContent=record.id;
+      $('#saveBudget').hidden=true;$('#proposalBackClients').hidden=false;
+      $('#editQuote').textContent=record.acceptance?'Criar nova versão':'Editar orçamento';
+      window.editDisplayedBudget=()=>editBudget(record.id);
+      $('#proposalApprovalStatus').textContent=record.acceptance?'Proposta aceita em '+new Date(record.acceptance.date).toLocaleString('pt-BR')+' · '+record.id:'Orçamento salvo · '+record.id;
+      renderProcurementSummary(record.proposal);$('#shareProposal').disabled=true;
+      $('#testRecord').checked=!!record.isTest;$('#testRecord').disabled=true;
+      $('#customerLink').href=record.publicPath;$('#customerLink').textContent=new URL(record.publicPath,location.href).href;$('#customerLink').hidden=record.status==='archived';
+      $('#acceptanceMessage').textContent=record.acceptance?'Esta é a proposta aceita. Para alterar os dados, crie uma nova versão.':'';
+      returnToProposal.hidden=false;showView('proposal');
+      if(print){await document.fonts.ready;window.print();}
+    }catch(error){$('#clientBudgetMessage').textContent=error.message;showView('clients');}
+  }
+  async function editBudget(id){
+    try{
+      const record=await api('records/'+id);
+      editingRecord=record;displayedRecord=null;pending=null;window.editDisplayedBudget=null;
+      restoreQuoteForm(ContractCore.clone(record.proposal));
+      editNotice.textContent=record.status==='pending'&&!record.acceptance?'Editando orçamento '+record.id+'. Gere a proposta e clique em Salvar alterações.':'Nova versão baseada no orçamento '+record.id+'. O orçamento anterior e seu aceite serão preservados.';
+      editNotice.hidden=false;$('#proposalBackClients').hidden=false;
+    }catch(error){$('#clientBudgetMessage').textContent=error.message;}
+  }
+  async function persistBudget(){
+    if(!pending)throw new Error('Gere uma proposta completa.');
+    if(pending.saved)return pending.record;
+    if(saving)return saving;
+    const draft=pending;
+    $('#saveBudget').disabled=true;$('#shareProposal').disabled=true;
+    saving=(async()=>{
+      const payload={id:draft.id,proposal:draft.proposal,isTest:$('#testRecord').checked,sourceRecordId:draft.sourceRecordId,previousRevision:draft.previousRevision};
+      const record=await api(draft.recordId?'records/'+draft.recordId+'/proposal':'records',{method:draft.recordId?'PUT':'POST',body:JSON.stringify(payload)});
+      if(pending===draft){
+        Object.assign(draft,{id:record.id,recordId:record.id,previousRevision:record.proposalRevision||0,saved:true,record});
+        draft.proposal=ContractCore.clone(record.proposal);
+        buildProposal(record.proposal,{notify:false,issuedAt:record.updatedAt||record.createdAt});
+        renderProcurementSummary(record.proposal);
+        editingRecord=record;$('#pNumber').textContent=record.id;
+        $('#proposalApprovalStatus').textContent='Orçamento salvo · '+record.id;
+        $('#shareProposal').textContent='Ver link do cliente';
+        $('#customerLink').href=record.publicPath;$('#customerLink').textContent=new URL(record.publicPath,location.href).href;$('#customerLink').hidden=false;
+        $('#testRecord').disabled=true;$('#proposalBackClients').hidden=false;
+      }
+      await refresh();return record;
+    })();
+    try{return await saving;}finally{saving=null;$('#saveBudget').disabled=!!pending?.saved;$('#shareProposal').disabled=false;}
+  }
+  $('#saveBudget').onclick=async()=>{
+    try{await persistBudget();$('#acceptanceMessage').textContent='Orçamento salvo. Você pode reabri-lo e imprimir em Clientes.';}
+    catch(error){$('#acceptanceMessage').textContent=error.message;}
+  };
   $('#shareProposal').onclick=async()=>{
     try{
       if(!pending)throw new Error('Gere uma proposta completa.');
       $('#shareProposal').disabled=true;
       loginShortcut.hidden=true;$('#acceptanceMessage').textContent='Gerando link…';
-      const record=await api('records',{method:'POST',body:JSON.stringify({proposal:pending.proposal,isTest:$('#testRecord').checked})});
+      const record=await persistBudget();
       pending.id=record.id;$('#pNumber').textContent=record.id;
       $('#proposalApprovalStatus').textContent='Aguardando aceite · '+record.id;
       const link=$('#customerLink');link.href=record.publicPath;link.textContent=new URL(record.publicPath,location.href).href;link.hidden=false;

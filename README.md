@@ -41,7 +41,9 @@ O schema inicial do Supplier Hub é aplicado automaticamente pelo servidor por m
 - A configuração da primeira conta só é permitida por uma conexão local e com `PUBLIC_URL` ainda não definido. Configure a conta antes de publicar.
 - A migração preserva o banco existente: os registros anteriores ficam vinculados à primeira conta administradora. A chave antiga em `.data/admin-key.txt` e a variável `SOLARPRO_ADMIN_PASSWORD` deixam de autenticar usuários.
 
-O formulário de orçamento em edição continua temporário. Os registros são salvos no servidor ao gerar o link do cliente.
+Na proposta gerada, clique em **Salvar orçamento** para guardar os dados no servidor. Gerar o link do cliente também salva o orçamento. Em **Clientes**, cada cliente reúne seus orçamentos, com opções para visualizar, editar e imprimir novamente o documento completo.
+
+Orçamentos sem aceite podem ser editados e salvos com o mesmo código e link; o servidor mantém o histórico e verifica alterações simultâneas. Orçamentos aceitos ou assinados são preservados: **Criar nova versão** carrega os dados no formulário e salva outro orçamento, com novo código e vínculo com o anterior. A visualização de um orçamento salvo utiliza seus valores registrados, sem recalcular a proposta.
 
 ## O que está implementado
 
@@ -81,7 +83,7 @@ Esta versão registra **assinatura do cliente por link com identidade autodeclar
 
 O registro inclui data do servidor, IP da conexão, navegador, histórico de versões e SHA-256 do texto assinado, incluindo o anexo. O hash ajuda a conferir a integridade; os registros não constituem certificação externa. O IP registrado é o da conexão ao servidor e pode ser o do proxy.
 
-As propostas compartilhadas e os contratos ficam no SQLite em `.data/contracts.sqlite`. A pasta `.data` está fora do Git e não é servida por HTTP. Faça backup dessa pasta com o servidor parado. O formulário de orçamento ainda é temporário.
+Os orçamentos salvos, propostas compartilhadas e contratos ficam no SQLite em `.data/contracts.sqlite`. A pasta `.data` está fora do Git e não é servida por HTTP. Faça backup dessa pasta com o servidor parado. Alterações em edição precisam ser geradas e salvas para permanecerem disponíveis após recarregar a plataforma.
 
 ### Disponibilizar links aos clientes
 

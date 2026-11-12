@@ -265,11 +265,37 @@ function showQuoteForm(){
 }
 
 function startQuote(type){
+  window.dispatchEvent(new Event('newquotestarted'));
   field('quoteType').value=type;
   syncQuoteType();
   showQuoteForm();
   setStep(1);
   showView('quote');
+}
+
+function restoreQuoteForm(proposal){
+  ++hspLookupId;
+  form.reset();
+  for(const control of form.elements){
+    if(!control.name||!Object.prototype.hasOwnProperty.call(proposal,control.name)||['state','city'].includes(control.name))continue;
+    if(control.type==='checkbox')control.checked=proposal[control.name]===true||proposal[control.name]==='1';
+    else if(['string','number'].includes(typeof proposal[control.name]))control.value=proposal[control.name];
+  }
+  field('quoteType').value=proposal.quoteType==='services'||proposal.servicesQuote?'services':'system';
+  field('systemType').value=proposal.hybrid?'hybrid':(proposal.systemType||'grid');
+  field('state').value=proposal.state||'';fillCities(proposal.state,proposal.city);
+  if(proposal.city&&!field('city').value){field('city').add(new Option(proposal.city,proposal.city));field('city').disabled=false;field('city').value=proposal.city;}
+  for(const service of additionalServiceDefinitions){
+    const saved=(proposal.additionalServices||[]).find(item=>item.field===service.field||item.label===service.label);
+    field(service.field).checked=!!saved;
+    if(saved){field(service.field+'Quantity').value=saved.quantity;field(service.field+'Unit').value=saved.unitValue;}
+  }
+  document.querySelectorAll('.consumption').forEach((input,index)=>input.value=proposal.consumption?.[index]??'');
+  activeMonthlyHsp=Array.isArray(proposal.solarProfile)&&proposal.solarProfile.length===12?[...proposal.solarProfile]:[...SolarSizingEngine.DEFAULT_MONTHLY_HSP];
+  hspSourceLabel=proposal.hspSource||'Valor salvo no orçamento';
+  if(proposal.kitCost===undefined)field('kitCost').value=proposal.pricingSnapshot?.equipmentCostCents!==null&&proposal.pricingSnapshot?.equipmentCostCents!==undefined?proposal.pricingSnapshot.equipmentCostCents/100:'';
+  syncQuoteType();showQuoteForm();setStep(1);updateAverage();
+  setHspStatus('Dados recuperados do orçamento salvo.');showView('quote');
 }
 
 function calculate(){
@@ -297,9 +323,9 @@ function calculate(){
   return {...d,quoteType:servicesQuote?'services':'system',servicesQuote,hybrid,hspSource:hspSourceLabel,solarProfile:[...activeMonthlyHsp],storageCost,serviceCost,additionalServices,storageCapacity,usableCapacity,autonomy,consumption,average,targetMonthly,modules:servicesQuote?0:modules,installedKwp:servicesQuote?0:installedKwp,generation:servicesQuote?generation.map(()=>0):generation,annualGeneration:servicesQuote?0:annualGeneration,annualSavings,investment,payback,area:servicesQuote?0:modules*defaultModuleArea};
 }
 
-function buildProposal(r){
-  const date=new Intl.DateTimeFormat('pt-BR',{dateStyle:'long'}).format(new Date());
-  const connection=field('connection').selectedOptions[0].textContent;
+function buildProposal(r,{notify=true,issuedAt}={}){
+  const date=new Intl.DateTimeFormat('pt-BR',{dateStyle:'long'}).format(issuedAt?new Date(issuedAt):new Date());
+  const connection=[...field('connection').options].find(option=>option.value===String(r.connection))?.textContent||'Não informada';
   const servicesQuote=r.quoteType==='services'||r.servicesQuote;
   document.querySelector('#pDate').textContent=date;
   document.querySelector('#pClientCover').textContent=r.clientName;
@@ -315,7 +341,7 @@ function buildProposal(r){
   document.querySelector('#pPower').textContent=`${number(r.installedKwp)} kWp`;
   document.querySelector('#pModules').textContent=`${r.modules} × ${r.modulePower} W`;
   document.querySelector('#pGeneration').textContent=`${number(r.annualGeneration,0)} kWh`;
-  document.querySelector('#pArea').textContent=`${number(r.area)} m²`;
+  document.querySelector('#pArea').textContent=`${number(r.area??Number(r.modules)*defaultModuleArea)} m²`;
   document.querySelector('#pMonthlyAverage').textContent=`${number(r.annualGeneration/12,0)} kWh/mês`;
   document.querySelector('#pInvestment').textContent=money(r.investment);
   document.querySelector('#pPayback').textContent=Number.isFinite(r.payback)?`${number(r.payback)} anos`:'Não aplicável';
@@ -327,10 +353,12 @@ function buildProposal(r){
   document.querySelector('.economy-row').hidden=servicesQuote;
   document.querySelector('.finance-page .equipment').hidden=servicesQuote;
   document.querySelector('.finance-highlight div:first-child span').textContent=servicesQuote?'Servi\u00e7os or\u00e7ados':'Equipamentos, projeto e instala\u00e7\u00e3o';
-  const max=Math.max(...r.generation,1);
-  document.querySelector('#generationChart').innerHTML=servicesQuote?'':r.generation.map((v,i)=>`<div class="bar-wrap" title="${months[i]}: ${number(v,0)} kWh"><div class="bar" style="height:${v/max*92}%"></div><span class="bar-label">${months[i]}</span></div>`).join('');
+  const generation=Array.isArray(r.generation)?r.generation:[];
+  document.querySelector('.chart-card').hidden=servicesQuote||generation.length!==12;
+  const max=Math.max(...generation,1);
+  document.querySelector('#generationChart').innerHTML=servicesQuote?'':generation.map((v,i)=>`<div class="bar-wrap" title="${months[i]}: ${number(v,0)} kWh"><div class="bar" style="height:${v/max*92}%"></div><span class="bar-label">${months[i]}</span></div>`).join('');
   renderEquipment(r);
-  window.dispatchEvent(new CustomEvent('proposalbuilt',{detail:r}));
+  if(notify)window.dispatchEvent(new CustomEvent('proposalbuilt',{detail:r}));
 }
 
 function renderEquipment(r){
@@ -488,7 +516,10 @@ document.querySelector('#nextStep').addEventListener('click',()=>{
   if(currentStep<3){setStep(isServicesQuote()&&currentStep===1?3:currentStep+1);return;}
   lastResult=calculate(); buildProposal(lastResult); showView('proposal');
 });
-document.querySelector('#editQuote').addEventListener('click',()=>{showView('quote');showQuoteForm();setStep(3)});
+document.querySelector('#editQuote').addEventListener('click',()=>{
+  if(window.editDisplayedBudget){window.editDisplayedBudget();return;}
+  showView('quote');showQuoteForm();setStep(3);
+});
 document.querySelector('#printProposal').addEventListener('click',()=>window.print());
 updateAverage();
 updateInvestmentPreview();

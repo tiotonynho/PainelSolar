@@ -345,8 +345,12 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
           return reply(200,rows.map(row=>({...JSON.parse(row.body),ownerId:row.owner_id})));
         }
         if(route==='/api/records'&&req.method==='POST'){
-          const data=await body(req),{proposal:rawProposal,isTest=false}=data;
+          const data=await body(req),{id:requestedId,proposal:rawProposal,isTest=false}=data;
           auth.requireUser(req);
+          if(requestedId!==undefined&&(typeof requestedId!=='string'||!/^PT-\d{4}-(?:[A-F0-9]{8}|[A-F0-9]{10})$/.test(requestedId)))throw fail('Código da proposta inválido.');
+          if(requestedId&&db.prepare('SELECT id FROM records WHERE id=?').get(requestedId))throw fail('Este código de proposta já está em uso.',409);
+          const sourceRecordId=data.sourceRecordId||null;
+          if(sourceRecordId){if(typeof sourceRecordId!=='string')throw fail('Orçamento de origem inválido.');ownedRecord(sourceRecordId,user);}
           const source=String(data.pricingSource??rawProposal?.pricingSource??(String(rawProposal?.pricingMode||'LEGACY').toUpperCase()==='STANDARD'?PRICING_SOURCES.MANUAL:PRICING_SOURCES.LEGACY)).toUpperCase();
           const selectionMode=String(data.selectionMode??rawProposal?.selectionMode??SELECTION_MODES.AUTO).toUpperCase();
           if(source===PRICING_SOURCES.PROCUREMENT&&selectionMode===SELECTION_MODES.MANUAL&&user.role!=='admin')throw fail('Somente administradores podem sobrescrever a selecao de aquisicao.',403);
@@ -354,11 +358,31 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
           const proposal=prepareProposal({proposal:rawProposal,procurementResult,pricingSource:source,selectionMode,selectedOfferId:data.selectedOfferId??rawProposal?.selectedOfferId,overrideReason:data.overrideReason??rawProposal?.overrideReason,freightRequired:data.freightRequired,requireComplete:true});
           const pricedProposal=proposal.proposal;
           Core.accept(pricedProposal,{name:'Validação',document:'Validação',date:new Date().toISOString(),channel:'Validação',evidence:'Validação',confirmed:true},'validation');
-          const token=crypto.randomBytes(32).toString('base64url'),id='PT-'+new Date().getFullYear()+'-'+crypto.randomBytes(5).toString('hex').toUpperCase();
+          const token=crypto.randomBytes(32).toString('base64url'),id=requestedId??('PT-'+new Date().getFullYear()+'-'+crypto.randomBytes(5).toString('hex').toUpperCase());
           const procurementReview=procurementResult?{...normalizeProcurementResult(procurementResult),refreshedAt:new Date().toISOString(),actorId:user.id}:null;
           const audit=pricedProposal.pricingSource===PRICING_SOURCES.PROCUREMENT?[{event:'procurement.selected',date:new Date().toISOString(),actorId:user.id,pricingSource:pricedProposal.pricingSource,selectionMode:pricedProposal.selectionMode||null,procurementSnapshot:pricedProposal.pricingSnapshot?.procurementSnapshot||null}]:[];
-          const r={id,proposal:pricedProposal,procurementReview,status:'pending',isTest:isTest===true,acceptance:null,contract:null,pricingHistory:[],audit,expiresAt:Date.now()+3*86400000,publicPath:'/cliente.html#'+token};
+          const r={id,proposal:pricedProposal,proposalRevision:1,proposalHistory:[],createdAt:new Date().toISOString(),sourceRecordId,procurementReview,status:'pending',isTest:isTest===true,acceptance:null,contract:null,pricingHistory:[],audit,expiresAt:Date.now()+3*86400000,publicPath:'/cliente.html#'+token};
           db.prepare('INSERT INTO records(id,token,body,owner_id) VALUES (?,?,?,?)').run(id,hash(token),JSON.stringify(r),user.id);return reply(201,r);
+        }
+        const proposalUpdateMatch=route.match(/^\/api\/records\/([A-Z0-9-]+)\/proposal$/);
+        if(proposalUpdateMatch&&req.method==='PUT'){
+          const data=await body(req),r=ownedRecord(proposalUpdateMatch[1],user);
+          if(r.status!=='pending'||r.acceptance||r.contract||r.signature)throw fail('Este orçamento já recebeu aceite ou foi encerrado. Crie uma nova versão.',409);
+          if(data.previousRevision!==(r.proposalRevision||0))throw fail('O orçamento foi atualizado. Reabra os dados em Clientes antes de editar.',409);
+          const rawProposal=data.proposal;
+          if(!rawProposal||typeof rawProposal!=='object'||Array.isArray(rawProposal))throw fail('Informe os dados do orçamento.');
+          const source=String(rawProposal.pricingSource??(String(rawProposal.pricingMode||'LEGACY').toUpperCase()==='STANDARD'?PRICING_SOURCES.MANUAL:PRICING_SOURCES.LEGACY)).toUpperCase();
+          const selectionMode=String(rawProposal.selectionMode??SELECTION_MODES.AUTO).toUpperCase();
+          if(source===PRICING_SOURCES.PROCUREMENT&&selectionMode===SELECTION_MODES.MANUAL&&user.role!=='admin')throw fail('Somente administradores podem sobrescrever a selecao de aquisicao.',403);
+          const priced=prepareProposal({proposal:rawProposal,procurementResult:rawProposal.procurementResult,pricingSource:source,selectionMode,requireComplete:true});
+          Core.accept(priced.proposal,{name:'Validação',document:'Validação',date:new Date().toISOString(),channel:'Validação',evidence:'Validação',confirmed:true},'validation');
+          const now=new Date().toISOString();
+          r.proposalHistory=[...(r.proposalHistory||[]),{revision:r.proposalRevision||0,proposal:r.proposal,changedAt:now}];
+          r.proposal=priced.proposal;r.proposalRevision=(r.proposalRevision||0)+1;r.updatedAt=now;
+          r.procurementReview=rawProposal.procurementResult?{...normalizeProcurementResult(rawProposal.procurementResult),refreshedAt:now,actorId:user.id}:null;
+          r.expiresAt=Date.now()+3*86400000;
+          r.audit=[...(r.audit||[]),{event:'proposal.updated',date:now,actorId:user.id,revision:r.proposalRevision}];
+          save(r);return reply(200,r);
         }
         if(route==='/api/records/test'&&req.method==='DELETE'){
           if(user.role!=='admin')throw fail('Acesso exclusivo do administrador.',403);
