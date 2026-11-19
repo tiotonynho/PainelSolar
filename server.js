@@ -63,6 +63,25 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
     db.prepare('INSERT OR REPLACE INTO solar_hsp_cache(key,body,updated_at) VALUES (?,?,?)').run(key,JSON.stringify(result),Date.now());
     return result;
   }
+  function publicProposal(r,ownerId){
+    const p=r.proposal,num=value=>{const n=Number(value);return Number.isFinite(n)?n:null;},text=value=>typeof value==='string'?value.slice(0,250):'';
+    const price=num(p.customerPrice??p.investment),annualSavings=num(p.annualSavings),services=p.quoteType==='services'||p.servicesQuote===true,hybrid=!services&&(p.hybrid===true||p.systemType==='hybrid');
+    const generation=Array.isArray(p.generation)&&p.generation.length===12&&p.generation.every(value=>Number.isFinite(Number(value)))?p.generation.map(Number):null;
+    const owner=ownerId?db.prepare('SELECT name FROM users WHERE id=?').get(ownerId):null;
+    return {
+      quoteType:services?'services':'system',clientName:text(p.clientName),address:text(p.address),city:text(p.city),state:text(p.state),
+      installation:text(p.installation),connection:({30:'Monofásica',50:'Bifásica',100:'Trifásica'})[String(p.connection)]||'',
+      installedKwp:num(p.installedKwp),modules:num(p.modules),modulePower:num(p.modulePower),area:num(p.area),
+      annualGeneration:num(p.annualGeneration),generation,annualSavings,investment:price,customerPrice:price,
+      payback:!services&&price&&annualSavings>0?price/annualSavings:null,tariff:services?null:num(p.tariff),
+      hybrid,moduleBrand:text(p.moduleBrand),moduleModel:text(p.moduleModel),inverterBrand:text(p.inverterBrand),inverterModel:text(p.inverterModel),
+      inverterType:text(p.inverterType),inverterPower:num(p.inverterPower),inverterQuantity:num(p.inverterQuantity),
+      battery:hybrid?{brand:text(p.batteryBrand),model:text(p.batteryModel),quantity:num(p.batteryQuantity),capacity:num(p.storageCapacity),usable:num(p.usableCapacity),autonomy:num(p.autonomy),backupLoad:num(p.backupLoad)}:null,
+      additionalServices:(Array.isArray(p.additionalServices)?p.additionalServices:[]).map(item=>({label:text(item.label),quantity:num(item.quantity),unitValue:num(item.unitValue),total:num(item.total)})),
+      serviceNotes:text(p.serviceNotes),equipment:Core.equipment(p),services:Core.services(p),
+      issuedAt:r.createdAt||null,expiresAt:r.status==='pending'?r.expiresAt:null,consultant:owner?.name||null
+    };
+  }
   function ownedRecord(id,user){
     const owner=db.prepare('SELECT owner_id FROM records WHERE id=?').get(id);
     if(!owner||(user.role!=='admin'&&owner.owner_id!==user.id))throw fail('Registro não encontrado.',404);
@@ -149,15 +168,14 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
       if(route.startsWith('/api/public/')){
         const [,token,action]=route.match(/^\/api\/public\/([A-Za-z0-9_-]{43})(?:\/(accept|sign))?$/)||[];
         if(!token)throw fail('Link inválido.',404);
-        const row=db.prepare('SELECT body FROM records WHERE token=?').get(hash(token));
+        const row=db.prepare('SELECT body,owner_id FROM records WHERE token=?').get(hash(token));
         if(!row)throw fail('Link não encontrado.',404);
         let r=JSON.parse(row.body);
         if(r.status==='archived')throw fail('Proposta arquivada. Solicite um novo link.',410);
         if(r.expiresAt<Date.now()&&r.status==='pending')throw fail('Proposta expirada. Solicite um novo link.',410);
         if(req.method==='GET'&&!action){
-          const p=r.proposal;
           const publicEvents=r.signature?(r.audit||[]).map(event=>({event:event.event,date:event.date})):[];
-          return reply(200,{id:r.id,status:r.status,proposal:{quoteType:p.quoteType,clientName:p.clientName,address:p.address,city:p.city,state:p.state,installedKwp:p.installedKwp,annualGeneration:p.annualGeneration,investment:p.investment,customerPrice:p.customerPrice??p.investment,annualSavings:p.annualSavings,equipment:Core.equipment(p),services:Core.services(p)},contract:r.contract?{text:r.contract.text,revision:r.contract.revision,hash:r.contract.hash}:null,signature:r.signature||null,events:publicEvents});
+          return reply(200,{id:r.id,status:r.status,proposal:publicProposal(r,row.owner_id),contract:r.contract?{text:r.contract.text,revision:r.contract.revision,hash:r.contract.hash}:null,signature:r.signature||null,events:publicEvents});
         }
         if(req.method!=='POST')throw fail('Método não permitido.',405);
         const data=await body(req);
@@ -439,7 +457,7 @@ function createServer({dataDir=path.join(__dirname,'.data'),publicUrl=process.en
         }
         throw fail('Rota não encontrada.',404);
       }
-      const files=['index.html','app.js','styles.css','theme-portico.css','contracts.css','contracts.js','contract-template.js','contract-core.js','api-client.js','auth-ui.js','auth.css','diagnostics.css','commercial-config-ui.js','supplier-import-ui.js','diagnostic-admin.js','leads-admin.js','cliente.html','cliente.js','localities.js','solar-sizing-engine.js','money.js','pricing-config.js','pricing-engine.js','portico-diagnostico.html','portico-diagnostico.css','portico-diagnostico.js','landing.html','landing.css','landing.js','portico-solar.html','gotex.html','brand.css','brand.js','privacidade.html','gotex-diagnostico.html','gotex-diagnostico.css','gotex-diagnostico.js'];
+      const files=['index.html','app.js','styles.css','theme-portico.css','contracts.css','contracts.js','contract-template.js','contract-core.js','api-client.js','auth-ui.js','auth.css','diagnostics.css','commercial-config-ui.js','supplier-import-ui.js','diagnostic-admin.js','leads-admin.js','cliente.html','cliente.js','cliente.css','localities.js','solar-sizing-engine.js','money.js','pricing-config.js','pricing-engine.js','portico-diagnostico.html','portico-diagnostico.css','portico-diagnostico.js','landing.html','landing.css','landing.js','portico-solar.html','gotex.html','brand.css','brand.js','privacidade.html','gotex-diagnostico.html','gotex-diagnostico.css','gotex-diagnostico.js'];
       const assets=['assets/portico-logo-horizontal-color.png','assets/portico-logo-horizontal-white.png','assets/portico-logo-horizontal-white-transparent.png','assets/portico-logo-vertical-color.png','assets/portico-logo-vertical-white.png','assets/portico-logo-vertical-white-transparent.png'];
       const file=route==='/'?'landing.html':route==='/app'?'index.html':route==='/portico/diagnostico'?'portico-diagnostico.html':route==='/gotex/diagnostico'?'gotex-diagnostico.html':route==='/portico-solar'?'portico-solar.html':route==='/gotex'?'gotex.html':route==='/privacidade'?'privacidade.html':route.slice(1);
       if(req.method!=='GET'||(!files.includes(file)&&!assets.includes(file)))throw fail('Não encontrado.',404);

@@ -1,0 +1,53 @@
+.customer-page { background: #f4f2ef; }
+.customer-topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--line); }
+.customer-topbar img { width: 150px; height: auto; }
+.customer-status { padding: 6px 12px; border-radius: 999px; background: #f0ece9; color: #655b55; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.customer-status[data-status="pending"], .customer-status[data-status="prepared"] { background: #fff0e4; color: #b44e17; }
+.customer-status[data-status="accepted"] { background: #e7effa; color: #335c90; }
+.customer-status[data-status="signed"] { background: #ddf3ea; color: #287256; }
+.customer-main { max-width: 960px; margin: 0 auto; padding: 24px 24px 110px; }
+.customer-error { padding: 18px 20px; border: 1px solid #f3b79a; border-left: 4px solid #d4541a; border-radius: 12px; background: #fff1ea; color: #8f3410; font-weight: 700; line-height: 1.6; }
+.customer-proposal { background: #fff; box-shadow: var(--shadow); }
+@media screen { .customer-proposal .proposal-page { min-height: auto; } .customer-proposal .proposal-cover { min-height: 620px; } }
+.customer-decision { margin-top: 24px; padding: 32px; border-radius: 20px; background: #fff; box-shadow: var(--shadow); scroll-margin-top: 80px; }
+.decision-heading { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 20px; }
+.decision-heading h2 { margin: 8px 0 6px; font: 800 28px Nunito, sans-serif; letter-spacing: -.03em; }
+.decision-heading p { margin: 0; color: var(--muted); line-height: 1.6; max-width: 560px; }
+.validity-chip { flex-shrink: 0; padding: 10px 14px; border: 1px solid #f3b79a; border-radius: 10px; background: #fff6f0; color: #a84712; font-size: 13px; font-weight: 800; }
+.validity-chip.is-urgent { border-color: #e73c1d; background: #e73c1d; color: #fff; }
+.customer-decision .public-contract { scroll-margin-top: 80px; }
+.customer-decision #publicForm { margin-top: 20px; }
+.customer-decision #publicSubmit { width: 100%; max-width: 320px; padding: 14px; font-size: 15px; }
+#publicMessage:not(:empty) { margin: 16px 0 0; padding: 12px 14px; border-radius: 10px; background: #ddf3ea; color: #1f5c43; font-weight: 700; overflow-wrap: anywhere; }
+#publicMessage.is-error { background: #fff1ea; color: #8f3410; }
+.consultant-card { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-top: 28px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 14px; background: #fffaf6; }
+.consultant-card small, .consultant-card strong, .consultant-card span { display: block; }
+.consultant-card small { color: #a84712; font-size: 10px; font-weight: 800; letter-spacing: .1em; }
+.consultant-card strong { margin: 5px 0 3px; font-size: 16px; }
+.consultant-card span { color: var(--muted); font-size: 12px; }
+.consultant-whatsapp, .customer-actionbar a { text-decoration: none; text-align: center; white-space: nowrap; }
+.consultant-whatsapp { background: #1f9d55 !important; border-color: #1f9d55 !important; }
+.customer-actionbar { display: none; }
+@media screen and (max-width: 600px) {
+  .customer-topbar { padding: 10px 14px; }
+  .customer-topbar img { width: 118px; }
+  .customer-main { padding: 0 0 96px; }
+  .customer-proposal, .customer-decision { border-radius: 0; }
+  .customer-decision { margin-top: 0; padding: 26px 18px; border-top: 8px solid #f4f2ef; }
+  .decision-heading { flex-direction: column; gap: 12px; }
+  .decision-heading h2 { font-size: 24px; }
+  .consultant-card { flex-direction: column; align-items: stretch; }
+  .customer-decision #publicSubmit { max-width: none; }
+  .customer-actionbar:not([hidden]) { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: grid; grid-template-columns: 1fr 2fr; gap: 10px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(0,0,0,.08); }
+  .customer-actionbar a { padding: 13px 10px; font-size: 14px; }
+  .customer-actionbar a[hidden] { display: none; }
+  .customer-actionbar:has(a.primary[hidden]) { grid-template-columns: 1fr; }
+}
+@media print {
+  .customer-page { background: #fff; }
+  .customer-topbar { position: static; }
+  .customer-main { padding: 0 !important; }
+  .customer-actionbar, .consultant-card, .customer-status { display: none !important; }
+  .customer-proposal, .customer-decision { box-shadow: none; border-radius: 0; }
+  .customer-decision { break-before: page; }
+}

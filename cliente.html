@@ -1,5 +1,104 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Pórtico · Sua proposta e contrato</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="theme-portico.css"><link rel="stylesheet" href="contracts.css"></head>
-<body class="customer-page"><main style="margin:0;max-width:960px;padding:24px;margin-inline:auto"><div class="panel"><span class="section-kicker">PÓRTICO SOLAR ENERGY</span><h1>Sua proposta e contrato</h1><p id="publicStatus" role="status">Carregando…</p><div id="publicSummary"></div><article id="publicContract" class="public-contract" hidden></article>
-<form id="publicForm" hidden><h2 id="publicAction"></h2><div class="form-grid"><label>Nome completo<input name="name" required maxlength="250"></label><label>CPF / CNPJ do contratante<input name="document" required maxlength="250"></label><label class="wide">E-mail<input name="email" type="email" required maxlength="250"></label></div>
-<label class="check-label"><input type="checkbox" name="confirmed" required><span id="publicConsent"></span></label><p class="field-help">Assinatura simples por link, com identidade autodeclarada. Registraremos os dados informados, data, endereço IP e versão do documento para documentar esta operação.</p><button class="primary" id="publicSubmit">Confirmar</button></form><p id="publicMessage" role="status"></p><button class="ghost" id="publicPrint" hidden>Imprimir / Salvar comprovante</button></div></main><script src="api-client.js"></script><script src="cliente.js"></script></body></html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Pórtico · Sua proposta solar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="theme-portico.css">
+  <link rel="stylesheet" href="contracts.css">
+  <link rel="stylesheet" href="cliente.css">
+</head>
+<body class="customer-page">
+  <header class="customer-topbar">
+    <img src="assets/portico-logo-horizontal-color.png" alt="Pórtico Solar Energy">
+    <span class="customer-status" id="publicStatus" role="status">Carregando sua proposta…</span>
+  </header>
+
+  <main class="customer-main">
+    <p class="customer-error" id="publicError" role="alert" hidden></p>
+
+    <article class="proposal customer-proposal" id="customerProposal" hidden>
+      <div class="proposal-cover">
+        <div class="proposal-brand portico-logo"><img class="portico-logo-img portico-logo-img-vertical" src="assets/portico-logo-vertical-white-transparent.png" alt="Pórtico Solar Energy"></div>
+        <span class="proposal-number" id="cNumber"></span>
+        <div class="cover-copy">
+          <div class="system-badge" id="cSystemBadge"></div>
+          <span>PROPOSTA TÉCNICA COMERCIAL</span>
+          <h2 id="cCoverTitle">Energia limpa.<br>Economia de verdade.</h2>
+          <p>Projeto preparado para <strong id="cClientCover"></strong>.</p>
+        </div>
+        <div class="cover-result">
+          <div><small id="cCoverFirstLabel">Potência do sistema</small><strong id="cCoverFirst"></strong></div>
+          <div><small id="cCoverSecondLabel">Economia no 1º ano</small><strong id="cCoverSecond"></strong></div>
+        </div>
+      </div>
+
+      <div class="proposal-page">
+        <div class="proposal-header"><div class="proposal-brand portico-logo dark"><img class="portico-logo-img portico-logo-img-horizontal" src="assets/portico-logo-horizontal-color.png" alt="Pórtico Solar Energy"></div><span id="cDate"></span></div>
+        <h2 class="section-heading" id="cProjectHeading">Seu projeto solar</h2>
+        <p class="lead" id="cProjectLead">Dimensionamento desenvolvido a partir do seu consumo e do potencial solar da região.</p>
+        <div class="client-card"><div><small>CLIENTE</small><strong id="cClient"></strong><span id="cAddress"></span></div><div><small>INSTALAÇÃO</small><strong id="cInstallation"></strong><span id="cConnection"></span></div></div>
+        <div class="result-grid system-only"><div><small>Potência instalada</small><strong id="cPower"></strong></div><div><small>Módulos solares</small><strong id="cModules"></strong></div><div><small>Geração anual</small><strong id="cGeneration"></strong></div><div><small>Área estimada</small><strong id="cArea"></strong></div></div>
+        <div class="chart-card system-only" id="cChartCard"><div class="chart-heading"><div><h3>Geração estimada</h3><p>Produção mensal prevista em kWh</p></div><strong id="cMonthlyAverage"></strong></div><div class="bars" id="cChart"></div></div>
+      </div>
+
+      <div class="proposal-page equipment-page system-only">
+        <span class="section-kicker">02 / TECNOLOGIA DO SEU PROJETO</span>
+        <h2 class="section-heading">Equipamentos escolhidos</h2>
+        <p class="lead" id="cSystemDescription"></p>
+        <div class="equipment-cards" id="cEquipmentCards"></div>
+        <div class="storage-summary" id="cStorage" hidden></div>
+        <div class="technical-note"><h3>Sobre as estimativas</h3><p id="cAssumptions"></p><p>A configuração final depende da vistoria técnica e da validação das condições elétricas da instalação.</p></div>
+      </div>
+
+      <div class="proposal-page finance-page">
+        <h2 class="section-heading" id="cFinanceHeading">O investimento que se paga</h2>
+        <p class="lead" id="cFinanceLead">A economia produzida pelo sistema recupera o investimento e continua gerando valor.</p>
+        <div class="finance-highlight"><div><small>INVESTIMENTO TOTAL</small><strong id="cInvestment"></strong><span id="cInvestmentNote">Equipamentos, projeto e instalação</span></div><div class="system-only"><small>PAYBACK SIMPLES</small><strong id="cPayback"></strong><span>Retorno estimado</span></div></div>
+        <div class="economy-row system-only"><div><small>Economia no 1º ano</small><strong id="cAnnualSavings"></strong></div><div><small>Economia média mensal</small><strong id="cMonthlySavings"></strong></div><div><small>Vida útil considerada</small><strong>25 anos</strong></div></div>
+        <div class="service-summary" id="cServicesBlock" hidden><h3>Serviços orçados</h3><ul id="cServices"></ul><p id="cServiceNotes"></p></div>
+        <div class="equipment system-only"><h3>Equipamentos e serviços inclusos</h3><ul id="cIncluded"></ul></div>
+        <div class="terms"><h3>Condições comerciais</h3><p id="cTerms">Para pagamento à vista: 75% na assinatura do contrato e 25% após a finalização da instalação. Proposta válida por 3 dias. Sujeita à disponibilidade de produtos.</p></div>
+        <footer><span>Pórtico Solar Energy • Alfenas/MG</span><span>antoniocruz@porticosolar.com.br • (35) 98409-2508</span></footer>
+      </div>
+    </article>
+
+    <section class="customer-decision" id="decision" hidden>
+      <div class="decision-heading">
+        <div><span class="section-kicker" id="decisionKicker">PRÓXIMO PASSO</span><h2 id="publicAction">Aceitar proposta</h2><p id="decisionLead"></p></div>
+        <div class="validity-chip" id="validity" hidden></div>
+      </div>
+      <article id="publicContract" class="public-contract" hidden></article>
+      <form id="publicForm" hidden>
+        <div class="form-grid">
+          <label>Nome completo<input name="name" autocomplete="name" required maxlength="250"></label>
+          <label>CPF / CNPJ do contratante<input name="document" inputmode="numeric" autocomplete="off" required maxlength="18" placeholder="000.000.000-00"></label>
+          <label class="wide">E-mail<input name="email" type="email" autocomplete="email" required maxlength="250"></label>
+        </div>
+        <label class="check-label"><input type="checkbox" name="confirmed" required><span id="publicConsent"></span></label>
+        <p class="field-help">Assinatura simples por link, com identidade autodeclarada. Registraremos os dados informados, data, endereço IP e versão do documento para documentar esta operação.</p>
+        <button class="primary" id="publicSubmit">Confirmar</button>
+      </form>
+      <p id="publicMessage" role="status"></p>
+      <button class="ghost" id="publicPrint" hidden>Imprimir / Salvar comprovante</button>
+      <div class="consultant-card">
+        <div><small>DÚVIDAS SOBRE A PROPOSTA?</small><strong id="consultantName">Fale com a equipe Pórtico Solar</strong><span>Respondemos pelo WhatsApp em horário comercial.</span></div>
+        <a class="primary consultant-whatsapp" id="consultantWhatsapp" target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a>
+      </div>
+    </section>
+  </main>
+
+  <nav class="customer-actionbar" id="actionBar" hidden aria-label="Ações da proposta">
+    <a class="ghost" id="actionBarWhatsapp" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+    <a class="primary" id="actionBarMain" href="#decision">Aceitar proposta</a>
+  </nav>
+
+  <script src="api-client.js"></script>
+  <script src="cliente.js"></script>
+</body>
+</html>
