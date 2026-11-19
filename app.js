@@ -87,7 +87,7 @@ function showView(id){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active-view'));
   document.querySelector(`#${id}`).classList.add('active-view');
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===id));
-  const titles={dashboard:'Visão geral',quote:'Novo orçamento',diagnostics:'Diagnósticos energéticos',clients:'Clientes',settings:'Configurações',proposal:'Proposta gerada',contracts:'Contratos',contract:'Contrato'};
+  const titles={dashboard:'Visão geral',quote:'Novo orçamento',diagnostics:'Diagnósticos energéticos',leads:'Leads',clients:'Clientes',settings:'Configurações',proposal:'Proposta gerada',contracts:'Contratos',contract:'Contrato'};
   document.querySelector('#pageTitle').textContent=({team:'Equipe',account:'Minha conta'})[id]||titles[id]||'Pórtico Solar Energy';
   window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -240,6 +240,13 @@ function updateInvestmentPreview(){
   }
   const preview=document.querySelector('#totalInvestmentPreview');
   if(preview)preview.textContent=money(breakdown.total);
+  const data=values();
+  const costField=data.pricingMode==='STANDARD'?'equipmentCost':'kitCost';
+  const missingCost=!isServicesQuote(data)&&String(field(costField)?.value??'').trim()==='';
+  document.querySelectorAll('[data-final-price]').forEach(output=>{
+    output.textContent=missingCost?'Informe o custo':money(breakdown.total);
+    output.closest('.final-price-field')?.classList.toggle('is-empty',missingCost);
+  });
 }
 
 function setStep(step){

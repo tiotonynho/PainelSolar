@@ -353,3 +353,7 @@ input:focus, select:focus { border-color: #EC6C19; box-shadow: 0 0 0 3px rgba(23
   .proposal { border-radius: 0; }
   .equipment-card, .storage-summary, .finance-highlight, .client-card { break-inside: avoid; }
 }
+.final-price-field { border-color: #f3b79a; background: #fff6f0; }
+.final-price-field span { color: #a84712; }
+.final-price-field output { font-size: 20px; color: #202020; }
+.final-price-field.is-empty output { color: var(--muted); font-size: 14px; font-weight: 700; }

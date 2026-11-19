@@ -21,6 +21,7 @@
     <nav>
       <button class="nav-item active" data-view="dashboard"><span>⌂</span> Visão geral</button>
       <button class="nav-item" data-view="quote"><span>＋</span> Novo orçamento</button>
+      <button class="nav-item" data-view="leads"><span>✉</span> Leads <b class="nav-badge" id="leadsBadge" hidden></b></button>
       <button class="nav-item" data-view="diagnostics"><span>◎</span> Diagnósticos</button>
       <button class="nav-item" data-view="clients"><span>♙</span> Clientes</button>
       <button class="nav-item" data-view="settings"><span>⚙</span> Configurações</button>
@@ -110,7 +111,7 @@
             </div><p class="field-help">Confirme a compatibilidade entre inversor e baterias. A autonomia é teórica e não considera perdas.</p></fieldset>
             <div class="wide field-section"><h3>02 / Dimensionamento e investimento</h3><p>Inclua módulos e inversores no custo do kit. Informe o armazenamento separadamente.</p></div>
             <label>Modo de precificação<select name="pricingMode"><option value="LEGACY">LEGACY — compatibilidade</option><option value="STANDARD">STANDARD — configuração comercial</option></select></label>
-            <label class="wide" id="standardEquipmentCostField" hidden>Custo manual do equipamento (R$)<input name="equipmentCost" type="number" min="0" step="0.01" value="5200"><small class="field-help">Usado no modo STANDARD até a integração automática com Procurement.</small></label>
+            <div class="wide rate-line" id="standardEquipmentCostField" hidden><label>Custo manual do equipamento (R$)<input name="equipmentCost" type="number" min="0" step="0.01" placeholder="Informe o custo do fornecedor"><small class="field-help">Usado no modo STANDARD até a integração automática com Procurement.</small></label><div class="amount-field final-price-field" aria-live="polite"><span>Preço final ao cliente</span><output data-final-price>—</output></div></div>
             <label>Tarifa de energia (R$/kWh)<input type="number" step="0.01" name="tariff" value="1.15"></label>
             <label>HSP médio diário<input type="number" step="0.01" name="hsp" value="5.1675"><small class="field-help" id="hspStatus">Escolha UF e cidade para atualizar automaticamente.</small></label>
             <label>Performance ratio<input type="number" step="0.01" name="performance" value="0.74"></label>
@@ -120,7 +121,7 @@
               <div><span>Geração média mensal</span><strong id="monthlyGenerationPreview">0 kWh</strong></div>
               <div><span>Geração anual estimada</span><strong id="annualGenerationPreview">0 kWh</strong></div>
             </div>
-            <label>Custo do kit (R$)<input type="number" step="0.01" name="kitCost" value="5200"></label>
+            <div class="wide rate-line"><label>Custo do kit (R$)<input type="number" step="0.01" name="kitCost" placeholder="Informe o custo do fornecedor"></label><div class="amount-field final-price-field" aria-live="polite"><span>Preço final ao cliente</span><output data-final-price>—</output></div></div>
             <div class="wide rate-line"><label>Lucro sobre o kit (%)<input type="number" step="0.01" name="margin" value="49"></label><div class="amount-field"><span>Valor em R$</span><output id="marginAmount">R$ 0,00</output></div></div>
             <div class="wide rate-line"><label>Custo de instalação e material (%)<input type="number" step="0.01" name="installationRate" value="23.08"></label><div class="amount-field"><span>Valor em R$</span><output id="installationAmount">R$ 0,00</output></div></div>
             <div class="wide rate-line"><label>Custo de Engenharia (%)<input type="number" step="0.01" name="engineeringRate" value="12"></label><div class="amount-field"><span>Valor em R$</span><output id="engineeringAmount">R$ 0,00</output></div></div>
@@ -203,6 +204,19 @@
       </article>
     </section>
 
+    <section id="leads" class="view">
+      <div class="diagnostic-admin-heading"><div><span class="section-kicker">PÁGINAS PÚBLICAS</span><h2>Leads recebidos</h2><p>Pedidos de orçamento e atendimento enviados pelas páginas da Pórtico Solar e da GoTex.</p></div><button class="ghost" id="leadRefresh" type="button">Atualizar lista</button></div>
+      <div class="diagnostic-layout">
+        <div class="panel diagnostic-list-panel">
+          <form id="leadFilters" class="diagnostic-filters"><label>Buscar<input name="q" type="search" placeholder="Nome, e-mail, telefone ou protocolo"></label><label>Situação<select name="status"><option value="OPEN">Em aberto</option><option value="">Todas</option><option value="NEW">Novo</option><option value="CONTACTED">Em contato</option><option value="QUALIFIED">Qualificado</option><option value="PROPOSAL_SENT">Proposta enviada</option><option value="WON">Fechado</option><option value="LOST">Perdido</option></select></label><label>Empresa<select name="company"><option value="">Todas</option><option value="portico">Pórtico Solar</option><option value="gotex">GoTex</option></select></label><button class="primary" type="submit">Filtrar</button></form>
+          <p class="diagnostic-message" id="leadListMessage" role="status"></p>
+          <div class="table-wrap"><table class="diagnostic-table"><thead><tr><th>Protocolo</th><th>Contato</th><th>Local</th><th>Recebido</th><th>Situação</th></tr></thead><tbody id="leadRows"></tbody></table></div>
+          <div class="diagnostic-pagination"><button class="ghost" id="leadPrev" type="button">Anterior</button><span id="leadPage">Página 1</span><button class="ghost" id="leadNext" type="button">Próxima</button></div>
+        </div>
+        <div class="panel diagnostic-detail-panel" id="leadDetailPanel"><div class="empty-state compact"><span>✉</span><h3>Selecione um lead</h3><p>Contato, mensagem e histórico de atendimento aparecerão aqui.</p></div></div>
+      </div>
+    </section>
+
     <section id="diagnostics" class="view">
       <div class="diagnostic-admin-heading"><div><span class="section-kicker">CAMPANHA PÓRTICO</span><h2>Diagnósticos energéticos</h2><p>Receba, confira e transforme solicitações em estudos preliminares revisáveis.</p></div><button class="ghost" id="diagnosticRefresh" type="button">Atualizar lista</button></div>
       <div class="diagnostic-layout">
@@ -252,5 +266,6 @@
   <script src="commercial-config-ui.js"></script>
   <script src="supplier-import-ui.js"></script>
   <script src="diagnostic-admin.js"></script>
+  <script src="leads-admin.js"></script>
 </body>
 </html>

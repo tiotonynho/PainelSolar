@@ -6,6 +6,7 @@
 .auth-card p{line-height:1.6;color:var(--muted)}.auth-card label,.account-form label{display:block;margin:16px 0;font-size:13px;font-weight:700}
 .auth-card .check-label{display:flex}.auth-card .primary{width:100%;margin-top:8px}
 #authMessage,#accountMessage,#teamMessage{color:#a63e12;font-size:13px}
+#authMessage:not(:empty){margin:14px 0 0;padding:11px 13px;border:1px solid #f3b79a;border-left:4px solid #d4541a;border-radius:8px;background:#fff1ea;color:#8f3410;font-weight:700}
 .account-form{max-width:480px;margin:24px 0}#userForm>.primary{margin-top:20px}
 .team-row{display:flex;align-items:center;flex-wrap:wrap;gap:20px;padding:22px 0;border-top:1px solid var(--line)}
 .team-row>div{flex:1;min-width:200px}.team-row small{display:block;margin-top:6px;color:var(--muted)}
